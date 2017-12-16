@@ -1,0 +1,1733 @@
+#!/bin/sh
+# .bashfun
+#
+# ====================== print my information =========================
+cv (){
+    echo "Name  :   Ainray"
+    echo "E-mail:   wwzhang0421@163.com"
+}
+# =================auxillary functions for manager paths================
+# functions to operate on file and path
+#
+# Functions to help manage paths:
+# 	 pathexpandtilde, for expand tilde manually
+# 	       syntax,  x=$(expand_tilde "~-")
+#        pathremove,  for remove specified path from PATH
+#            syntax,  pathremove $1 $2
+#        pathdeldup,  for delete duplicated paths in PATH
+#        	 syntax,  pathdeldup $1 $2
+#        pathprepend, for add path before current PATH
+#            syntax,  pathprepend $1 $2
+#        pathappend,  for add path after current PATH
+#            syntax,  pathappend $1 $2
+#        pathadd,     for add path into PATH if path is not in PATH
+#            syntax,  pathadd $1 $2
+#        pathaddmul,  for add every element of paths into PATH, if 
+#                     it is not in PATH
+#            syntax,  pathaddmul $1 $2
+# The second argument $2 is the name of path variable to be modified
+# (default: PATH)
+#
+pathexpandtilde ()  {
+    case "$1" in
+      \~+/*)   echo "${PWD}/${1#"~+/"}";;
+      \~-/*)   echo "${OLDPWD}/${1#"~-/"}";; 
+    	\~/*)    echo "${HOME}/${1#"~/"}";;
+      \~)	   echo "${HOME}";;
+      \~+)     echo "${PWD}";;
+      \~-)	   echo "${OLDPWD}";;
+      \~*)
+      	   local IFS=':'
+      	   local homedir
+      	   local username=${1%%/*}
+      	   if [ "${username}x" == "x" ] ; then # in case without "/"
+      	   	 username=${1#"~"}
+      	       read -a homedir < <(getent passwd "$username")
+      	       homedir=${homedir[5]}
+               	 echo "${homedir}"
+      	   else
+			 username=${username#"~"}
+      	       #echo username=$username
+      	       read -a homedir < <(getent passwd "$username")
+      	       homedir=${homedir[5]}
+      	       #echo \$1: ${1#"~*/"}
+               	 echo "${homedir}/${1#*/}"
+               fi
+    esac
+}
+# test examples
+#x=$(expand_tilde "~-")
+#echo "~-": $x
+#x=$(expand_tilde "~+")
+#echo  "~+": $x
+#x=$(expand_tilde "~+/.run")
+#echo  "~+/.run": $x
+#x=$(expand_tilde "~")
+#echo  "~": $x
+#x=$(expand_tilde "~/.vim")
+#echo  "~/.vim": $x
+#x=$(expand_tilde "~inray/.vim")
+#echo  "~inray/.vim": $x
+
+pathremove () {
+#
+# IFS variable is used for word splitting when expansion occurs   
+# local, bash builtin, for variable definition local to function
+#
+	local IFS=':' 
+	local NEWPATH
+	local DIR
+#
+# 	${parameter:-word}
+#   If the second argument of the function is set, its expansion is
+#   substituted, that is, PATHVARIABLE=$2; otherwise, PATHVARIABLE=
+#   PATH.
+# 
+	local PATHVARIABLE=${2:-PATH}
+# ${!PATHVARIALBE}, we know that PATHVARIABLE has value of $2 or PATH,
+# migth as well taking PATH, so first Bash use PATH (value of 
+# PATHVARIABLE) as the name of the variable, then use it in the 
+# following substitution. Note than, when PATH (or $2) 
+	for DIR in ${!PATHVARIABLE} ; do 
+	    if [ "$DIR" != "$1" ] ; then
+# ${parameter:+word}, if parameter is unset or null, nothing is subsituted, otherwise the expansion of word is substituted
+# NEWPATH is unset first, so nothing, and $DIR is not the removed path, so add it into newpath; but after the NEWPATH is 
+# setted, $DIR is recursively added into NEWPATH. 
+		  NEWPATH=${NEWPATH:+$NEWPATH:}$DIR
+	    fi
+	done	
+	export $PATHVARIABLE="$NEWPATH"
+}
+pathdeldup () {
+	local IFS=':' 
+	local NEWPATH
+	local NEWDIR
+	local OLDDIR
+	local FLAG=0
+	local PATHVARIABLE=${2:-PATH}
+	for OLDDIR in ${!PATHVARIABLE} ; do 
+	    FLAG=0    # assume no duplication
+	    for NEWDIR in ${NEWPATH:+$NEWPATH} ; do
+	    	  if [ "$OLDDIR" == "$NEWDIR" ] ; then
+	    	  	FLAG=1 #found duplication
+	    	  	break
+	    	  fi
+	    done
+	    if [ "${FLAG}x" == "0x" ] ; then # no duplicate
+	    	NEWPATH=${NEWPATH:+$NEWPATH:}$OLDDIR
+	    fi
+	done	
+	export $PATHVARIABLE="$NEWPATH"
+}
+
+pathprepend () {
+    pathremove $1 $2
+    local PATHVARIABLE=${2:-PATH}
+    export $PATHVARIABLE="$1${!PATHVARIABLE:+:${!PATHVARIABLE}}"
+}
+    
+pathappend () {
+    pathremove $1 $2
+    local PATHVARIABLE=${2:-PATH}
+    export $PATHVARIABLE="${!PATHVARIABLE:+${!PATHVARIABLE}:}$1"
+} 
+
+pathadd () {
+	local IFS=':' 
+	local DIR
+	local FLAG=0
+	local PATHVARIABLE=${2:-PATH}
+	#local NEWPATH=$1
+
+	if [ -d "$1" ] ; then
+	   #if [ "${1}x" == ".x" ] ; then
+	  # 	 NEWPATH=~+
+	  # fi
+	    #debug
+	    #echo in function pathadd
+	   # #echo '"'\$1'"': "$1"
+	   # #echo \${PATHVARIABLE}: ${PATHVARIABLE}
+	   # #echo '"'\${'!'PATHVARIABLE}x'"': "${!PATHVARIABLE}x"
+	    if [ "${!PATHVARIABLE}x" != "x" ] ; then  # nonempty
+	        for DIR in ${!PATHVARIABLE} ; do 
+	    	  #echo '"'\$DIR'"': "$DIR"
+	     #   #echo '"'\$NEWPATH'"': "$NEWPATH"
+	           #if [ "$DIR" == "$NEWPATH" ] ; then  # already in PATH
+	           if [ "$DIR" == "$1" ] ; then  # already in PATH
+	    	         FLAG=1
+	    	  #      #echo \$FLAG: $FLAG
+	    	         break
+	           fi
+	        done	
+	   fi
+	   #echo "${FLAG}x"
+	   if [ "${FLAG}x" == "0x" ] ; then # no duplicate
+	   	 # echo $1 is added into $PATHVARIABLE
+    	       # echo $PATHVARIABLE="${!PATHVARIABLE:+${!PATHVARIABLE}:}$1"
+    	        export $PATHVARIABLE="${!PATHVARIABLE:+${!PATHVARIABLE}:}$1"
+    	   #else
+    	   	#  echo $1 has been in $PATHVARIABLE
+    	   fi
+      fi
+}
+
+pathaddmul () {
+    local IFS=':'
+    local DIR
+    local PATHVARIABLE=${2:-PATH}
+    local OLDPATH="${!PATHVARIABLE}"
+   # #echo \$1: $1
+    for DIR in $1 ; do
+    	  if [ "${DIR:0:1}x" == "~x" ] ; then
+    	  	DIR=$(pathexpandtilde "${DIR}")
+    	  fi
+    	  #echo DIR: $DIR
+    	  #echo '"'\$DIR'"': "$DIR"
+    	  pathadd $DIR ${PATHVARIABLE}
+    done
+}
+
+pathpart () {
+    local file=
+    if [ $# -eq 1 ] ; then
+        file=$(realpath ${1})
+        #echo $#
+        #echo "$@"
+        echo ${file}
+    elif [ $# -eq 2 ] ; then
+        #echo $#
+        #echo "$@"
+        case "$1" in
+            '-f'|'--full')
+                file=$(realpath ${2})
+                ;;
+            '-p'|'--path')
+                file=$(realpath ${2})
+                file=${file%/*}
+                ;;
+            '-s'|'--short')
+                file=$(realpath ${2})
+                file=${file##*/}
+                ;;
+            '-x'|'--extension')
+                file=$(realpath ${2})
+                file=${file##*/}  
+                efile=${file#*.}
+                if [ "${efile}x" == "${file}x" ] ; then
+                    file=
+                else
+                    file=${efile}
+                fi
+                ;;
+            '-b'|'--base')
+                file=$(realpath ${2})
+                file=${file##*/}
+                efile=${file#*.}
+                if [ "${efile}x" != "${file}x" ] ; then
+                    file=${file%.${efile}}
+                fi
+                ;;
+            -*|--*)
+                file=$(realpath ${2})
+                ;;
+             *)
+                file=$(realpath ${1})
+                case "$2" in
+                    '-f'|'--full') ;;
+                    '-p'|'--path')
+                        file=${file%/*} ;;
+                    '-s'|'--short')
+                        file=${file##*/} ;;
+                    '-x'|'--extension')
+                        file=${file##*/}  
+                        efile=${file#*.}
+                        if [ "${efile}x" == "${file}x" ] ; then
+                            file=
+                        else
+                            file=${efile}
+                        fi
+                        ;;
+                    '-b'|'--base')
+                        file=${file##*/}
+                        efile=${file#*.}
+                        if [ "${efile}x" != "${file}x" ] ; then
+                            file=${file%.${efile}}
+                        fi
+                        ;;
+                    '');;
+                esac
+        esac
+        echo ${file}
+    fi
+}
+pathcat () {
+    local fullpath
+    if [ "${1}x" == ".x" ] ; then
+        fullpath=${PWD}/
+        shift
+    elif [ "${1}x" == "~x" ] ; then
+        fullpath=${HOME}/
+        shift
+    fi
+    
+    for i in $* 
+    do
+        if [ "${i:$((${#i}-1))}x" != "/x" ] ; then
+            i=${i}/
+        fi
+        fullpath=${fullpath:+${fullpath}}${i}
+    done
+    echo ${fullpath}
+}
+
+pathcatne () {
+    #no end /
+    local fullpath=$(pathcat $*)
+    fullpath=${fullpath%%/}
+    echo ${fullpath}
+}
+
+    pathappend pathadd pathaddmul pathpart pathcat pathcatne
+
+mkdircd(){
+    # "$@" is expanded to "$1" "$2" ...
+    # which will further suffer to double quoted-expansion
+    # first, \$ in "" literal $, so is \", then "\"\$$#\"" expands to
+    #        "$2"
+    # eval cd "$2"
+    # so cd the last path created newly
+    # 
+    mkdir -p "$@" && eval cd "\"\$$#\""
+}
+
+# ==================== date functions ==================
+#
+# .bash_fun
+# 
+# date :20170806
+# author: Ainray
+# email: wwzhang0421@163.com
+#
+# date functions
+#
+leap () {
+    year=${1}
+    state=0 # not leap
+    if [ $# -eq 1 ] && [ "${year}x"!="x" ] ; then
+        if [ $((10#${year}%4)) -eq 0 ]  \
+            &&  [ $((10#${year}%100)) -ne 0 ] ; then
+            state=1
+        fi
+        if [ $((10#${year}%400)) -eq 0 ] ; then
+            state=1
+        fi
+    fi
+    echo ${state}
+}
+
+# check input argument is a valid date or not
+# now only support YYYYMMDD format, for example
+# 201708105
+validdate () {
+    local date=${1}
+    local state=1 #default is invalid date
+    if [ $# -gt 1 ] || [ $# -eq 0 ] ; then #only support one input
+        state=0
+    else
+        #echo ${date}
+        if [[ ${date} =~ ^[[:digit:]]+$ ]] ; then
+               # echo ${#date}
+            if [ "${#date}x" == "8x" ] ; then
+                local year=${1:0:4}
+               # echo ${year}
+                local month=${1:4:2} # must be 1~12
+               # echo ${month}
+                if [ $((10#${month})) -lt 1 ] || \
+                    [ $((10#${month})) -gt 12 ] ; then
+                    state=0
+                  #  echo invalid month
+                else #valid month, then day 
+                    local day=${1:6:2} 
+                 #   echo ${day}
+                    local maxday=30
+                    case "${month}" in
+                        "01"|"03"|"05"|"07"|"08"|"10"|"12") maxday=31;;
+                        "02") # check leap or not
+                            local isleap=$(leap ${year})
+                        #    echo ${isleap}
+                            if [ "${isleap}x" == "1x" ] ; then
+                                maxday=29
+                            else
+                                maxday=28
+                            fi
+                            ;;
+                        *) maxday=30;;
+                    esac
+                   # echo ${maxday}
+                    if [ $((10#${day})) -lt 1 ] || \
+                        [ $((10#${day})) -gt $((10#${maxday})) ] ;\
+                    then
+                        state=0 
+                
+                    fi
+                fi
+            else # not YYYYMMDD
+                state=0
+               # echo not YYYYMMDD
+            fi # not 8-length
+        else
+            state=0
+        fi #not digit
+    fi # not one input
+    echo ${state}
+}
+
+
+# ================= functions to get system information ===============
+#
+# function for display current bash colors scheme
+printcolor () {
+# this function print current bash colors for files
+# refer to : dircolors -p
+# \e means escape, try to : ls --color=always $HOME > color.sample
+# give long name 
+    eval $(echo "no=normal;rs=reset;di=directory;\
+    ln=symbolic link;mh=multihardlink;pi=named pipe;\
+    so=socket;do=door;bd=block device;cd=character device;\
+    or=orphan;mi=missing;su=setuid;sg=setgid;\
+    ca=capability;tw=target writable;ow=other writable;
+    st=sticky;ex=exec;"|sed 's/=/="/g; s/\;/"\n/g;'|\
+        sed -n 's/^/local /;$!p')
+    echo "Attribute codes:"
+    dircolors -p |sed -n '/=/p'|sed 's/#//' |sed -n '1p'
+    echo "Color codes:"
+    dircolors -p |sed -n '/=/p'|sed 's/#//' |sed -n '2,$p'
+    echo "Bash sript color syntax(\003 escape next character): "
+    echo ' "\033[01;32mwhat\033[00m" will display' \
+'"'"$(echo -e "\033[01;32mwhat\033[00m")"'"'
+    if [ "${1}x" == "-lx" ] ; then
+        local IFS=':'
+        for i in ${LS_COLORS}
+        do
+            x=${i%=*} 
+            if [ -v ${x} ] ; then
+                echo -e "\e[${i#*=}m${!x}\e[0m : ${i#*=}"
+            else
+                echo -e "\e[${i#*=}m${x}\e[0m : ${i#*=}"
+            fi
+        done
+    fi
+}
+# ======================= functions to compile =========================
+# s2lib: compile fortran sources into libs using f90split
+s2lib () {
+if [ $# -gt 0 ] ; then #no input
+    local runpath=${myrun}
+    local libpath=${mylib}
+    local splitlib=${runpath}/f90split
+    local lbasename=$(pathpart ${1} -b)
+    local libname=lib${lbasename}.a
+    local wd=$(pathpart ${1} -p)
+    local fortran=gfortran
+    local logfile=lib.log
+    local compile=0
+    local opts=${2}  #optional dependencies
+    
+    if [ -r ${wd}/${1} ] && [ -x ${splitlib} ] &&\
+        [ ! -f ${libpath}/${libname} ]; then
+            compile=1
+    fi
+
+    # force recompile
+    if [ -r ${wd}/${1} ] && [ -x ${splitlib} ] &&\
+        [ -f ${libpath}/${libname} ] && [ "${2}x" == "-fx" ]; then
+            compile=1
+    fi
+#   echo ${compile}
+#   echo ${wd}
+#   echo ${libpath}
+#   echo ${splitlib}
+#   echo ${lbasename}
+#   echo ${libname}
+
+    if [ "${compile}x" = "1x" ] ; then 
+        mkdir ${wd}/temp
+        cd ${wd}/temp
+        echo ${pwd}
+        rm * &> /dev/null
+        echo "========================================"\
+"================================">> ${libpath}/${logfile}
+        ${splitlib} ../${1} >> ${libpath}/${logfile}
+        #
+        for FILE in `ls -1 *.f90`;
+        do
+            ${fortran} -c $FILE  ${opts} >> ${libpath}/${logfile}
+            # $? is the exit status of last executed foreground pipeline
+            if [ $? -ne 0 ]; then
+                echo "Errors compiling " $FILE  >> ${libpath}/${logfile}
+                return
+            fi
+        done
+        echo "========================================"\
+"================================">> ${libpath}/${logfile}
+        rm *.f90 &> /dev/null
+        #
+        ar qc ${libname} *.o
+        rm *.o &> /dev/null
+        #
+        mv ${libname} ${libpath}
+        cd ..
+        rmdir temp
+        #
+        echo "Library installed as ${libpath}/${libname}"
+    fi
+fi
+}
+
+# ======================= functions to search ==========================
+
+w3sed () {
+    local pat
+    #local parnum=$(eval echo "{1..$(($#-1))}")
+    #local IFS=' '
+    for i in $*
+    do
+        pat=${pat:+${pat}'\(\S\|\s\)*'}${i} 
+       #echo pat=${pat}
+    done
+    #add suffix
+#    case "${$#}" in
+#        'w') 
+#            pat=${pat:+${pat}}'\s*'w
+#            ;;
+#        'f') 
+#            pat=${pat:+${pat}}'\s*'f
+#            ;;
+#        'a')
+#            ;;
+#    esac
+    #echo ${pat}
+    #echo "sed -n \"/${pat}/p\" ${HOME}/.w3"
+    eval $(echo 'sed -n "/${pat}/Ip" ${HOME}/.w3')
+}
+
+vsd (){
+    local gs=https://github.com/vim-scripts/${1}.vim.git
+    git clone ${gs}
+}
+
+w3lynx (){
+    w3sed $* |cut -d' ' -f1|xargs lynx
+}
+
+w3wget (){
+    local _domain=
+    local _domain0=
+    case "${1}" in
+        "-D"|"-d"|"--domain")
+            _domain=$2
+            shift 2
+            ;;
+    esac
+    local site=$(w3sed $* |cut -d' ' -f1)
+    #echo ${site}
+    if [ -z ${_domain} ] ; then 
+        _domain0=${site%%[!/]/[!/]*}
+        _domain=${_domain0}${site:${#_domain0}:1}
+        _domain=${_domain#*//}
+    fi
+    #echo ${_domain0}
+    #echo ${_domain}
+    wget -k -r ${site} -D ${_domain}
+}
+
+fortdown (){
+    local fortran='https://people.sc.fsu.edu/~jburkardt/f_src/'
+    case "$1" in 
+        "-a"|"-all")
+            wget ${fortran}/${2}/${2}.f90
+            wget -k ${fortran}/${2}/${2}.html
+            sed  -i 's/f_src\/\(f_src\)*\//f_src\//' ${2}.html
+            wget ${fortran}/${2}/${2}_prb.f90
+            wget ${fortran}/${2}/${2}_prb_output.txt
+            ;; 
+        "-f"|"--file"|"--special")
+            wget ${fortran}/${2}/${3}
+            ;;
+        "-l"|"--list")
+            lynx ${HOME}/.man/f_src.html
+            ;;
+        "-o"|"--output")
+            wget ${fortran}/${2}/${2}_prb_output.txt
+            ;;
+        "-p"|"--print")
+            echo ${fortran}
+            ;;
+        "-s"|"--source")
+            wget ${fortran}/${2}/${2}.f90
+            ;;
+        "-t"|"--test")
+            wget ${fortran}/${2}/${2}_prb.f90
+            ;;
+        "-w"|"--html")
+            wget -k ${fortran}/${2}/${2}.html
+            sed  -i 's/f_src\/\(f_src\)*\//f_src\//' ${2}.html
+            ;;
+        "--tutorial-gfortran-keywords"|"--tgfk")
+            lynx ~/.man/gcc.gnu.org/onlinedocs/gfortran/Keyword-Index.html
+            ;;
+        "--tutorial-gfortran-index"|"--tgfi")
+            lynx /home/inray/.man/gcc.gnu.org/onlinedocs/gfortran/index.html
+            ;;
+        "--tutorial-gfortran-intrinsic-functions"|"--tgfif")
+            lynx ~/.man/gcc.gnu.org/onlinedocs/gfortran/Intrinsic-Procedures.html
+            ;;
+        "--tutorial-gfortran-intrinsic-modules"|"--tgfim")
+            lynx ~/.man/gcc.gnu.org/onlinedocs/gfortran/Intrinsic-Modules.html
+            ;;
+        "--tutorial-fortran-computational-chemistry-list"|"--tfccl")
+            lynx /home/inray/.man/www.ccl.net/cca/software/SOURCES/FORTRAN/allen-tildesley-book/f.00.shtml
+            ;;
+        "--tutorial-fortran-f77"|"--tf77")
+            lynx ~/.man/docs.oracle.com/cd/E19957-01/805-4939/index.html
+            ;;
+        "--tutorial-fortran-f77to90"|"--tf77to99")
+            lynx ~/.man/www.nsc.liu.se/\~boein/f77to90/f77to90.html
+            ;;
+        "--tutorial-fortran-imsl"|"--tfimsl")
+            lynx ~/.man/docs.roguewave.com/imsl/fortran/6.0/sfun/SFUN_HTML-toc.htm
+            ;;
+        "--tutorial-fortran-jean-pierre-moreau"|"--tfjpm")
+            lynx ~/.man/jean-pierre.moreau.pagesperso-orange.fr/fortran.html
+            ;;
+        "--tutorial-fortran-mtu"|"--tfmtu")
+            lynx /home/inray/.man/pages.mtu.edu/\~shene/COURSES/cs201/NOTES/format.html
+            ;;
+        "--tutorial-fortran-numerical-recipies"|"--tfnr")
+            lynx ${HOME}/Prj/41-famous/nr/nr-fortran77_90-src-v.2.10a/index.htm
+            ;;
+        "--tutorial-python-sympy"|"--tps")
+            lynx /home/inray/.man/docs.sympy.org/latest/index.html
+            ;;
+        "-h"|"--help"|*)
+            echo "    -a"\|"-all" code-name
+            echo "    -f"\|"--file"\|"--special" code_name file
+            echo "    -h"\|"--help"
+            echo "    -l"\|"--list" 
+            echo "    -o"\|"--output" code-name
+            echo "    -p"\|"--print"
+            echo "    -s"\|"--source" code-name
+            echo "    -t"\|"--test"   code-name
+            echo "    -w"\|"--html"   code-name
+            echo "    --tutorial-gfortran-keywords"\|"--tgfk"
+            echo "    --tutorial-gfortran-index"\|"--tgfi"
+            echo "    --tutorial-gfortran-intrinsic-functions"\|"--tgfif"  \[intrinsic functions\]
+            echo "    --tutorial-gfortran-intrinsic-modules"\|"--tgfim" \[intrinsic modules\]
+            echo "    --tutorial-fortran-computational-chemistry-list"\|"--tfccl"
+            echo "    --tutorial-fortran-f77"\|"--tf77"
+            echo "    --tutorial-fortran-f77to90"\|"--tf77to90"
+            echo "    --tutorial-fortran-imsl"\|"--tfimsl"
+            echo "    --tutorial-fortran-jean-pierre-moreau"\|"--tfjpm"
+            echo "    --tutorial-fortran-mtu"\|"--tfmtu" \[basic\]
+            echo "    --tutorial-fortran-numerical-recipies"\|"--tfnr"
+            echo "    --tutorial-python-sympy"\|"--tps"
+            ;;
+    esac
+}
+
+
+w3git (){
+    git clone `w3sed $* |cut -d' ' -f1`
+}
+
+# ======================= local commands  ==========================
+cmdsed () {
+    local pat
+    for i in $*
+    do
+        pat=${pat:+${pat}'\(\S\|\s\)*'}${i} 
+    done
+    eval $(echo 'sed -n "/${pat}/Ip" ${HOME}/.cmd')
+}
+
+bashlynx(){
+    lynx /home/inray/.man/bash.html
+}
+plot (){
+    #------------------------------- local variables ----------------------------
+    #== specify buffuer for command stack
+    local buf=GNUPLOTCMD
+    local databuf=GNUPLOTDATACMD # for both data or express
+    local sllbuf=GNUPLOTDATASSL       #buf for set scale, limit, and label
+    local cmdbuf=GNUPLOTCMDMAN   # command directly from user
+    local scriptbuf=GNUPLOTCMDSCRIPT # from script
+    local funcbuf=GNUPLOTFUNC  #user-defined functions
+    local ishelp=0  #just glance paramters
+    local isff=0    # check first parameter is input file, supress help output
+    local visible=0 # output plot command
+    local vfile=    # output script
+    #== general setting
+    # term : 'png','jpeg'(or 'jpg'),...
+    # coordinate type: 'polar',''
+    # date type: 'expr', 'data','datahist','command','script','show','testpng' 'testeps'
+    # figure name: 'gnuplot.png'
+    local term='png'
+    local utf8=0
+    local enhan="noenhanced"
+    local size='1080,720'
+    local font='Times,15'
+    local terminal=     #complex terminal
+    local coortype=
+    local datatype='data'
+    local suffix='.png'
+    local defaultoutfile='gnuplot'
+    local outfile=
+    local fill=
+    local fillpat=
+    local isfillpat=0   #use default fill pattern
+    #== data expression, command, scripts
+    local expr=
+    local sample=100
+    local parametric=0
+    local command=
+    local script=
+    local func=   #user-defined functions
+    #== data block, for 'data' data
+    local linenumber=1
+    local data=
+    local infile=
+    local indexnum=0
+    local firstcol=1
+    local secondcol=
+    local xcol=       # for complex column, like $2*$2
+    local ycol=
+    local xycol=      # more column, as argument of using
+    local row=        # for every
+    local single_col=0 #default two column
+    #== line properties
+    local hist=       # for histgrams
+    local linemode=
+    local dashtypeindex=     # dashtypeindex index
+    local dashmode=    # user_defined type 
+    local linestyleindex=
+    local linestyle=    # user_defined style, for example for candlesticks
+    local line_style=   # temporary variable
+    local linetypeindex=
+    local linecolor=
+    local linewidth=
+    local pointtypeindex=
+    local pointsize=
+    local key=
+    local legend=
+    local legendi="notitle" 
+    local ratio=1  #data ratio
+    #== plot cofiguration
+    local title=
+    local arrow=
+    local label=
+    local boxes=0   # 1 indicate no border
+    local zeroaxis=0
+    local mul_layout_row=1
+    local mul_layout_col=1
+    local mul_num=1
+    local tlim=   #for parameter 
+    local xlim=
+    local ylim=
+    local x2lim=
+    local y2lim=
+    local xtic=
+    local ytic=
+    local x2tic=
+    local y2tic=
+    local xlabel=
+    local ylabel=
+    local x2label=
+    local y2label=
+    local Xlabel=  #complex control
+    local Ylabel=
+    local X2label=  #complex control
+    local Y2label=
+    local logscale=
+    # temporary loop index
+    local i=
+    local ilabel=
+    
+
+    # parameter parsing
+    # check first parameter is a file or not
+    if [ $# -eq 0 ] ; then ishelp=1;elif [ -f $1 ] ; then infile=$1;shift;isff=1;fi
+    while  [ $# -gt 0 ]
+    do
+        case "$1" in 
+            "-a"|"--arrow")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do arrow[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--bo"|"box-off"|"--boxes-off")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do boxes[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--bw"|"boxes-width")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do boxwidth[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            # accept gnuplot command directly,so supress automatical data match
+            "-c"|"--command")
+                datatype="command";linenumber=0; while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]];
+                    do strpush "$2" $cmdbuf;shift; done; shift;;
+            # coordinate type polar or Cartisian
+            "--ct"|"--coor-type")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do coortype[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            # input date file
+            "-d"|"--data-file"|"--in-file")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do infile[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--dm"|"--dash-mode")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do dashmode[$i]="${2#\\}"; i=$(($i+1));shift; done
+                shift;;
+            "--dti"|"--dash-type-index")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do dashtypeindex[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            # expression directly
+            "-e"|"--expr"|"--expression"|"--expresions")
+                datatype="expr";
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do expr[$i]="${2#\\}"; i=$(($i+1));shift; done
+                linenumber=$i;shift;;
+            "--enhan"|"--enhanced")
+                enhan="enhanced";shift;;
+            "-F"|"--function"|"--functions")
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do strpush "$2" $funcbuf;shift; done; shift;;
+            # input file data column
+            "-f"|"--first")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do firstcol[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--font")
+                font="$2";shift 2;;
+            # fill pattern
+            "--fill")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do fill[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--fp"|"--fill-pattern")
+                isfillpat=1
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do fillpat[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            # data index
+            "-i"|"--index")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do indexnum[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            #fsteps
+            "--fsteps"|"--fstep")
+                linemode='fsteps'; shift ;;
+            "--fillsteps"|"--fillstep")
+                linemode='fillsteps'; shift ;;
+            "-H"|"--HELP")
+                gnuplot -e "help ${2}" 2>&1 |less ;return;;
+            "-h"|"--help")
+                ishelp=1;shift;;
+            "--hist")
+                datatype="datahist"; i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do hist[$i]="$2";single_col[$i]=1;i=$(($i+1));shift; done
+                shift;;
+            #hteps
+            "--histeps"|"--hsteps"|"--histep"|"--hstep")
+                linemode='histeps';shift;;
+            #complex legends
+            "-k"|"--key")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do key[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "-l"|"--legend")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do legend[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--label")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do label[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--lc"|"--line-color")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do linecolor[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+                #line-line
+            "--ll"|"--lines-lines"|"--line-line"|"--lines-line"|"--line-lines")
+                linemode[1]='lines';shift;;
+            "--ln"|"--line-number")
+                linenumber="$2"; shift 2;;
+            "--logscale")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do logscale[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+                #line-point
+            "--lp"|"--line-point"|"--line-points"|"--lines-point"|"--lines-points")
+                linemode[1]='points';shift;;
+            "--lm"|"--line-mode")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do linemode[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--ls"|"--line-style")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do linestyle[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--lti"|"--line-type-index")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do linetypeindex[$i]="${2#\\}"; i=$(($i+1));shift; done
+                shift;;
+            "--lw"|"--line-width")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do linewidth[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--mlc"|"--multi-layout-col")
+                mul_layout_col="$2";shift 2;;
+            "--mlr"|"--multi-layout-row")
+                mul_layout_row="$2";shift 2;;
+            "--mud"|"--multi-up-down")
+                mul_layout_col=1;mul_layout_row=2;shift ;;
+            "--mumd"|"--multi-up-mid-down")
+                mul_layout_col=1;mul_layout_row=3;shift ;;
+            "-o"|"--out-figure"|"--out-file")
+                outfile="$2";shift 2;;
+            "--one"|"--ones")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do single_col[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "-p"|"--para"|"--parametric")
+                parametric=1; datatype="expr";i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do expr[$i]="${2#\\}"; i=$(($i+1));shift; done
+                linenumber=$i;shift;;
+            "--ps"|"--point-size")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do pointsize[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--pti"|"--point-type-index")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do pointtypeindex[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "-r"|"--ratio")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do ratio[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--row")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do row[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "-S"|"--script")
+                datatype='script'
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do script[$i]="$2"; i=$(($i+1));shift; done
+                # obmit remaining arguments
+                shift $#;; 
+            "-s"|"--second")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do secondcol[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--sample"|"--samples")
+                sample="$2";shift 2;;
+                # gnuplot built-in information
+            "--show")
+                gnuplot -e "show ${2}" 2>&1 |less ;return;;
+            "--size")
+                size="$2";shift 2;;
+                #step-line
+            "--sl"|"--step-line"|"--step-lines"|"--steps-line"|"--steps-lines")
+                linemode='steps';linemode[1]='lines';shift;;
+                #step-point
+            "--sp"|"--step-point"|"--step-points"|"--steps-point"|"--steps-points")
+                linemode='steps';linemode[1]='points';shift;;
+                #step-step
+            "--ss"|"--step-step"|"--step-steps"|"--steps-step"|"--steps-steps")
+                linemode='steps';linemode[1]='steps';shift;;
+                # double column
+            "--steps"|"--step")
+                linemode="steps";shift ;;
+            "-T")
+                terminal="$2";shift 2;;
+            "-t"|"--term"|"--terminal")
+                term="$2"; shift 2 ;;
+            "--test")
+                datatype="testpng";shift;;
+            "--testeps")
+                datatype="testeps";shift;;
+            "--title")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do title[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--tlim")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do tlim[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "-v")
+                visible=1; shift;;
+            "--vo"|"--visable-output")
+                 visible=2;  vfile=$2; shift 2;;
+             "-u"|"--utf8")
+                 uft8=1;shift 2;;
+            "-X")
+                unset $buf;unset $databuf;unset $sllbuf;unset $cmdbuf;unset $scriptbuf;unset $funcbuf;shift;return;;
+            "--xcol")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do xcol[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--xlabel")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do xlabel[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--Xlabel")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do Xlabel[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--x2label")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do x2label[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--X2label")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do X2label[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--xlim")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do xlim[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--x2lim")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do x2lim[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--xtic")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do xtic[$i]="${2#\\}"; i=$(($i+1));shift; done
+                shift;;
+            "--x2tic")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do x2tic[$i]="${2#\\}"; i=$(($i+1));shift; done
+                shift;;
+                #complex columns
+            "--xycol")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do xycol[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--ycol")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do ycol[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--ylabel")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do ylabel[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--Ylabel")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do Ylabel[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--y2label")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do y2label[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--Y2label")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do Y2label[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--ylim")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do ylim[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--y2lim")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do y2lim[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
+            "--ytic")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do ytic[$i]="${2#\\}"; i=$(($i+1));shift; done
+                shift;;
+            "--y2tic")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do y2tic[$i]="${2#\\}"; i=$(($i+1));shift; done
+                shift;;
+                #zero axis
+            "-z"|"--zero-axis")
+                i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do zeroaxis[$i]="${2}"; i=$(($i+1));shift; done
+                shift;;
+            *)
+                ishelp=1;shift ;;
+        esac
+    done
+    # only for help
+    if [ "${ishelp}x" == "1x" ] && [ "${isff}x" == "0x" ]; then
+cat|less <<_PLOTHELP
+    plot [-d] ifile [--ln linenumber] [--one] [-i indexlist] [-f firstcollist] [-s secondcollist]
+    example: 
+      [1] index the same, first column is abscisa, 2~4 column is data to be compared
+          plot example_index3is.dat --ln 3 --one -i 0 0 0 -s 2 3 4
+          same data, different types: line+point, two ways
+          plot test_ncutil_rect.dat --ln 2 -i 0 0 -f 1 1 -s 2 2 --lm l p --ylim [-0.1:1.1]
+          plot test_ncutil_rect.dat --lm lp
+          plot test_ncutil_rect.dat -T "png linewidth 3" --lm lp
+          plot "x123.txt" --ln 3 -i 0 0 0 --xycol "1:2:3" "1:2" "1:3" --lm filledcurves  \\
+               --fp 5 --lc "rgb 'red'" "rgb 'green'" "rgb 'blue'" --lw 1 3 3 --xtic "0,0.1,1"  \\
+               --ytic "\\-1,0.1,0" -l "using 1:2:3"
+          plot para.txt --hist rowstacked --fill "solid 0.4 border lt 7" --xlim [-0.7:40] --ylim [0:101]
+      [2] index different(0~2), two-column data 
+          plot example_index3id.dat --ln 3 -i 0 1 2
+      [3] index different(0~2), single-column data
+          plot example_index3id_onecol.dat --ln 3 --one -i 0 1 2  -s 1 1 1
+      [4] index different, first is single-column and  second is dual
+          plot example_indexdiff.dat --ln 2 -i 0 3 --one 1 0 -s 1 1
+      [5] functions
+          plot -e "4/pi*sin(x)" "4/pi*(sin(x)+sin(3*x)/3)" "4/pi*(sin(x)+sin(3*x)/3+sin(5*x)/5)" --xlim [-pi:pi]
+          plot -e "4/pi*sin(x)" "4/pi*(sin(x)+sin(3*x)/3)" "4/pi*(sin(x)+sin(3*x)/3+sin(5*x)/5)" \\
+               "sgn(sin(x))" --xlim [-pi:pi] --legend "S1" "S3" "S5" "Soo"
+          plot -e "sin(1/x) axis x1y1" "100*cos(x) axis x1y2"  -l "sin(1/x)" "100*cos(x)" --ytic "nomirror" \\
+               --y2tic "\\-100, 10"   --dti 1 2 --lc "rgb 'black'" "rgb 'black'"
+          plot -e "besj0(x)" "sin(x)" --lm "boxes" "boxes" --xlim [-6:6] --lc "rgb 'red'" "rgb 'green'" --fp --lw 0.5
+          plot -e "besy0(x)" "besy0(x)" --lm "filledcurves above y1=0.07" --xlim [0:50] -l "besy0(x)"  \\
+               --lc "rgb 'red'" "rgb 'red'" --ylim [-0.5:0.6] --sample 400
+          plot -e "'+' u 1:(-\\\$1):(-\\\$1**2)" "\\-x" "\\-x**2" --lw 1 3 3 --lm filledcurves --fp 5
+          plot -p "sin(7*t),cos(11*t)" --sample 1000 --tlim [0:2]
+          plot -e "t" --tlim [0:12*pi] --sample 500 --bo 1 --xtic "axis nomirror" --ytic "axis nomirror" --ct "polar"
+               --size 800,800
+          plot -F "fourier(k,x)=4./pi/(2*k-1)*sin((2*k-1)*x)" "sum100(x)=sum [k=1:5] fourier(k,x)" \\
+               -e "\\-sum100(x)" "sgn(x-pi)" --xlim [0:2*pi] --sample 1000
+      [6] command
+          plot -c "set samples 500" "set xrange [-10:10]" "set yrange [-0.4:1.2]" "set key bottom right; \\
+              fourier(k,x)=sin(3./2*k)/k*2./3*cos(k*x);sum10(x)=1./2+sum [k=1:10] fourier(k,x);\\
+              sum100(x)=1./2+sum [k=1:100] fourier(k,x);\\
+              sum1000(x)=1./2+ sum [k=1:1000]  fourier(k,x); plot sum10(x), sum100(x),sum1000(x)"
+    detail:
+            -a|--arrow "1 from 2.4,0.45 to 2.98,0.85 lt -1 lw 2 size .3,15"
+            --bo|box-off|--boxes-off [1,1,...]
+            --bw|boxes-width
+            -c|--command 'command1;command2;[...]'
+            --ct|--coor-type) "polar" "nonpolar"
+            -d|--data-file|--in-file
+            --dm|--dash-mode 
+            --dti|--dash-type-index [1,2, ...]
+            -e|--expr|--expression|--expresions {for expression}
+            -F|--function|--functions [function definitiions]
+                "fourier(k,x)=4./pi/(2*k-1)*sin((2*k-1)*x)" "sum100(x)=sum [k=1:5] fourier(k,x)" 
+            -f|--first
+            --fill "empty|pattern [n]|solid [1.0] [border lt -1|noborder]"
+            --fp|--fill-pattern
+            --font 'Times,15'|',15'|'Arial,12'|"Helvetica,14"|"Courier,12"
+            --fsteps|--fstep
+            --fillsteps|--fillstep
+            -H|--HELP {invoking gnuplot help ... }
+            -h|--help
+            --hist "rowstacked"|"columnstacked"
+            --histeps|--hsteps|--histep|--hstep
+            -i|--index
+            -k|--key "bottom right"|"left bottom Left box font 'Times,15'"|
+                     "at graph .9,.9 spacing 2 font 'Helvetica,14'"
+            -l|--legend [legent list]
+            --lable "'Approximation error' right at 2.4,0.45 offset -.5,0 font 'Helvetica,20'"
+            --lc|--line-color 'rgb "#FF0000"'
+                              'rgb "black|red|green|blue|yellow|cyan|orange|bisque"'
+                              'rgb "dark-violet|dark-orange|dark-red|sea-blue"'
+                              'rgb "steelblue|seagreen|goldenrod"'
+            --lti|--line-type-index [1, 2, ..., refer plot --test]
+            --ll|--lines-lines|--line-line|--lines-line|--line-lines
+            --ln|--line-number
+            --logscale  "xy" or "x" or "y" or "xy" "y"
+            --lp|--line-point|--line-points|--lines-point|--lines-points
+            --lm|--line-mode  [lines|points|linepoints|impulses|dots|errorbars|steps|boxes|boxerrorbars]
+                              [boxes]
+                              [filledcurves above y1=0.07]
+            --ls|--line-style ["with candlesticks lt -1 lw 2 whiskerbars"]
+            --lw|--line-width
+            --mlc|--multi-layout-col
+            --mlr|--multi-layout-row
+            --mud|--multi-up-down
+            --mumd|--multi-up-mid-down
+            -o|--out-figure|--out-file
+            --one|--ones
+            -p|--para|--parametric "sin(7*t),cos(11*t)"
+            --pti|--point-type-index
+            --ps|--point-size
+            -r|--ratio
+            --row  ::20::80
+            -s|--second
+            -sample 200
+            --show "colors" [>file] {invoking gnuplot show ...}
+            --size 1080,720
+            --sl|--step-line|--step-lines|--steps-line|--steps-lines
+            --sp|--step-point|--step-points|--steps-point|--steps-points
+            --ss|--step-step|--step-steps|--steps-step|--steps-steps
+            --steps|--step
+            -T "png font 'Times,15' size 1080,720 linewidth 2"
+            -t|--term|--terminal
+            --test  [test pngcario]
+            --testeps [test eps]
+            --title "\"Gibbs'phenomenon\" tc rgb 'black' font 'Times,30'"
+            --tlim [0:-2]
+            -X  {flush the buffer}
+            --xcol '(sqrt(\\\$1*\\\$1+\\\$2*\\\$2))' or "(sqrt(\\\$1*\\\$1+\\\$2+\\\$2))"
+            --xlabel "Time (s)"
+            --Xlabel "'Time (s)' font 'Times,l8'"
+            --xlim [-10:10]
+            --x2lim [-10:10]
+            --xtic [axis|border] [nomirror] ["\\-20 2"|"\\-1,0.1,0"]
+            --x2tic "\\-20 2"|"\\-1,0.1,0"
+            --xycol '0:(sqrt(\\\$1*\\\$1+\\\$2*\\\$2))' or "1:2"
+            --ycol
+            --ylabel "Amplitude (V)"
+            --Ylabel "'Amplitude (V)' font 'sans,18'"
+            --ylim
+            --y2lim
+            --ytic [[axis] nomirror]
+            --y2tic "\\-100 10"
+            -v
+            --vo outfile
+            -u|--uft8
+            -z|--zero-axis [1,1,...]
+_PLOTHELP
+        return
+    fi
+    #------------------------------- user defined functions----------------------
+    strpush "${!funcbuf}" $buf
+    #------------------------------- gobal setting ------------------------------
+    #====== terminal
+    case "${term}" in
+        "pngcairo") suffix=".png" ;;
+        "jpeg"|"jpg") term="jpeg";suffix='.jpg' ;;
+        "svg") term="svg";suffix='.svg';;
+        *) suffix=".png";term="pngcairo" ;;
+    esac
+    if [ -z "${terminal}" ] ; then terminal="${term} ${enhan} font '${font}' size ${size} linewidth 1.2"; fi
+    #--------------------------------- push cmd into stack--------------------------------------
+    # ====== set for plot
+    strpushv $buf ";" "set terminal push" "set terminal ${terminal}" "set samples ${sample}"
+    # ====== unicode
+    if [ "${utf8}x" == "1x" ] ; then strpush "set encoding utf8" $buf; fi
+    #====== set layout, multiplot only support one line one plot
+    mul_num=$((${mul_layout_row}*${mul_layout_col})) 
+    if [ ${mul_num} -gt 1 ] ; then strpush "set multiplot layout ${mul_layout_row} ${mul_layout_col}" $buf;fi
+    #====== match data with plot 
+    for ((i=0;i<${linenumber};++i)) do
+        # line style index, starting from 1 
+        linestyleindex[$i]=$[$i+1]; 
+        # line modes, padding mode with line style
+        if [ ! -z "${linemode[$i]}" ]; then linemode[$i]="w ${linemode[$i]}";fi
+        linemode[$i]="${linemode[$i]} ls ${linestyleindex[$i]}"
+        # line style
+        if [ -z "${linestyle[$i]}" ]; then  linestyle[$i]="${linemode[$i]}"; fi
+        # line type index
+        if [ -z "${linetypeindex[$i]}" ] ; then if [ "${linenumber}x" == "1x" ]; then linetypeindex[$i]=-1;else linetypeindex[$i]=$[$i+1];fi;fi
+        #dash type
+        if [ ! -z "${dashmode[$i]}" ] ; then if [ -z "${dashtypeindex[$i]}" ] ; then dashtypeindex[$i]=$[$i+1];fi
+            strpush "set dashtypeindex ${dashtypeindex[$i]} ${dashmode[$i]}" $buf;fi
+        if [ ! -z ${dashtypeindex[$i]} ] ; then strpush "set linetype ${linetypeindex[$i]} dt ${dashtypeindex[$i]}" $buf; fi
+        #fisrt flush style buffer
+        line_style=
+        if [ ! -z "${linecolor[$i]}" ]  ; then line_style="${line_style} lc ${linecolor[$i]}";fi
+        if [ ! -z ${linewidth[$i]} ]  ; then line_style="${line_style} lw ${linewidth[$i]}"; fi
+        if [ ! -z ${pointtypeindex[$i]} ]  ; then line_style="${line_style} pt ${pointtypeindex[$i]}"; fi
+        if [ ! -z ${pointsize[$i]} ]  ; then line_style="${line_style} ps ${pointsize[$i]}"; fi
+        if [ ! -z "${line_style}" ]; then strpush "set style line  ${linestyleindex[$i]} lt ${linetypeindex[$i]} ${line_style}" $buf;
+        # default line style
+        else
+            case $i in
+                0) strpush "set style line $[$i+1] lt ${linetypeindex[$i]} lw 2 pt 7 ps 1.2 " $buf;;
+                1) strpush "set style line $[$i+1] lt ${linetypeindex[$i]} lw 2 pt 7 ps 1.2 " $buf;;
+                2) strpush "set style line $[$i+1] lt ${linetypeindex[$i]} lw 2 pt 7 ps 1.2 " $buf;;
+                3) strpush "set style line $[$i+1] lt ${linetypeindex[$i]} lw 2 pt 7 ps 1.2 " $buf;;
+            esac
+        fi
+        # legend
+        legendi='notitle';if [ ! -z "${legend[$i]}" ] ; then legendi="title '${legend[$i]}'"; fi
+        # data with limit and scale and label
+        if [ ${mul_num} -gt 1 ] ; then # only support one line one plot for multi-plot
+            if [ "${coortype[$i]}" == "polar" ] ; then strpush "set ${coortype[$i]}" $sllbuf ;fi
+            if [ "${isfillpat}x" == "1x" ] && [ -z "${fill[$i]}" ]; then fill{$[$i]}="pattern ${fillpat[$i]}";fi
+            if [ ! -z "${fill[$i]}" ] ; then strpush "set style fill ${fill[$i]}" $sllbuf; fi
+            if [ ! -z "${hist[$i]}" ] ; then strpushv $sllbuf ";" "set style data histograms" "set style histogram ${hist[$i]}";fi
+            if [ ! -z "${title[$i]}" ] ; then strpush "set title ${title[$i]}" $sllbuf ;fi
+            if [ ! -z "${key[$i]}" ] ; then strpush "set key ${key[$i]}" $sllbuf; fi
+            if [ "${boxes[$i]}x" == "1x" ] ; then strpush "unset border" $sllbuf; fi
+            if [ "${zeroaxis[$i]}x" == "1x" ] ; then strpush "set zeroaxis" $sllbuf; fi
+            if [ ! -z "${logscale[$i]}" ] ; then strpush "set logscale ${logscale[$i]}" $sllbuf; fi
+            if [ ! -z "${tlim[$i]}" ] ; then strpush "set trange ${tlim[$i]}" $sllbuf; fi
+            if [ ! -z "${ylim[$i]}" ] ; then strpush "set yrange ${ylim[$i]}" $sllbuf; fi
+            if [ ! -z "${xlim[$i]}" ] ; then strpush "set xrange ${xlim[$i]}" $sllbuf; fi
+            if [ ! -z "${ylim[$i]}" ] ; then strpush "set yrange ${ylim[$i]}" $sllbuf; fi
+            if [ ! -z "${x2lim[$i]}" ] ; then strpush "set x2range ${x2lim[$i]}" $sllbuf; fi
+            if [ ! -z "${y2lim[$i]}" ] ; then strpush "set y2range ${y2lim[$i]}" $sllbuf; fi
+            if [ ! -z "${xtic[$i]}" ] ; then strpush "set xtics ${xtic[$i]}" $sllbuf; fi
+            if [ ! -z "${ytic[$i]}" ] ; then strpush "set ytics ${ytic[$i]}" $sllbuf; fi
+            if [ ! -z "${x2tic[$i]}" ] ; then strpush "set x2tics ${x2tic[$i]}" $sllbuf; fi
+            if [ ! -z "${y2tic[$i]}" ] ; then strpush "set y2tics ${y2tic[$i]}" $sllbuf; fi
+            if [ ! -z "${Xlabel[$i]}" ] ; then  strpush "set xlabel ${Xlabel[$i]}" $sllbuf;
+            elif [ ! -z "${xlabel[$i]}" ] ; then 
+                Xlabel[$i]="'${xlabel[$i]}'"; strpush "set xlabel ${Xlabel[$i]}" $sllbuf; fi
+            if [ ! -z "${Ylabel[$i]}" ] ; then  strpush "set ylabel ${Ylabel[$i]}" $sllbuf;
+            elif [ ! -z "${ylabel[$i]}" ] ; then
+                Ylabel[$i]="'${ylabel[$i]}'";strpush "set ylabel ${Ylabel[$i]}" $sllbuf; fi
+            if [ ! -z "${X2label[$i]}" ] ; then  strpush "set xlabel ${X2label[$i]}" $sllbuf;
+            elif [ ! -z "${x2label[$i]}" ] ; then 
+                X2label[$i]="'${x2label[$i]}'"; strpush "set x2label ${X2label[$i]}" $sllbuf; fi
+            if [ ! -z "${Y2label[$i]}" ] ; then  strpush "set ylabel ${Y2label[$i]}" $sllbuf;
+            elif [ ! -z "${y2label[$i]}" ] ; then
+                Y2label[$i]="'${y2label[$i]}'";strpush "set y2label ${Y2label[$i]}" $sllbuf; fi
+        elif [ $i -eq 0 ] ; then
+            if [ "${coortype}" == "polar" ] ; then strpush "set ${coortype}" $sllbuf ;fi
+            if [ "${isfillpat}x" == "1x" ] && [ -z "${fill}" ]; then fill="pattern ${fillpat[$i]}";fi
+            if [ ! -z "${fill}" ] ; then strpush "set style fill ${fill}" $sllbuf; fi
+            if [ ! -z "${hist}" ] ; then strpushv $sllbuf ";" "set style data histograms" "set style histogram ${hist}";fi
+            if [ ! -z "${title}" ] ; then strpush "set title ${title}" $sllbuf ;fi
+            if [ ! -z "${key}" ] ; then strpush "set key ${key}" $sllbuf; fi
+            if [ "${boxes}x" == "1x" ] ; then strpush "unset border" $sllbuf; fi
+            if [ "${zeroaxis}x" == "1x" ] ; then strpush "set zeroaxis" $sllbuf; fi
+            if [ ! -z "${logscale}" ] ; then strpush "set logscale '${logscale}'" $sllbuf; fi
+            if [ ! -z "${tlim}" ] ; then strpush "set trange ${tlim}" $sllbuf; fi
+            if [ ! -z "${xlim}" ] ; then strpush "set xrange ${xlim}" $sllbuf; fi
+            if [ ! -z "${x2lim}" ] ; then strpush "set x2range ${x2lim}" $sllbuf; fi
+            if [ ! -z "${ylim}" ] ; then strpush "set yrange ${ylim}" $sllbuf; fi
+            if [ ! -z "${y2lim}" ] ; then strpush "set y2range ${y2lim}" $sllbuf; fi
+            if [ ! -z "${xtic}" ] ; then strpush "set xtics ${xtic}" $sllbuf; fi
+            if [ ! -z "${x2tic}" ] ; then strpush "set x2tics ${x2tic}" $sllbuf; fi
+            if [ ! -z "${ytic}" ] ; then strpush "set ytics ${ytic}" $sllbuf; fi
+            if [ ! -z "${y2tic}" ] ; then strpush "set y2tics ${y2tic}" $sllbuf; fi
+            if [ ! -z "${Xlabel}" ] ; then  strpush "set xlabel ${Xlabel}" $sllbuf;
+            elif [ ! -z "${xlabel}" ] ; then Xlabel="'${xlabel}'"; strpush "set xlabel ${Xlabel}" $sllbuf; fi
+            if [ ! -z "${Ylabel}" ] ; then  strpush "set ylabel ${Ylabel}" $sllbuf;
+            elif [ ! -z "${ylabel}" ] ; then Ylabel="'${ylabel}'";strpush "set ylabel ${Ylabel}" $sllbuf; fi
+            if [ ! -z "${X2label}" ] ; then  strpush "set x2label ${X2label}" $sllbuf;
+            elif [ ! -z "${x2label}" ] ; then X2label="'${x2label}'"; strpush "set x2label ${X2label}" $sllbuf; fi
+            if [ ! -z "${Y2label}" ] ; then  strpush "set y2label ${Y2label}" $sllbuf;
+            elif [ ! -z "${y2label}" ] ; then Y2label="'${y2label}'";strpush "set y2label ${Y2label}" $sllbuf; fi
+            # label, only support one picture
+             for((ilabel=0;ilabel<${#label[@]};++ilabel)) do
+                 if [ ! -z "${label[$ilabel]}" ]; then strpush "set label ${label[$ilabel]}" $sllbuf;fi; done
+             for((ilabel=0;ilabel<${#arrow[@]};++ilabel)) do 
+                if [ ! -z "${arrow[$ilabel]}" ]; then strpush "set arrow ${arrow[$ilabel]}" $sllbuf;fi;done; 
+        fi
+        # assembling data
+        if [ "${datatype}" == "expr" ] ; then
+            if [ "${parametric}x" == "1x" ] ; then strpush "set parametric" $buf; fi
+            data="${expr[$i]} ${linestyle[$i]} ${legendi}"
+        elif [[ "${datatype}" =~ "data" ]] ; then 
+            # index
+            if [ -z ${indexnum[$i]} ] ; then  indexnum[$i]=0;fi
+                #if [ $i -eq 0 ] ;then indexnum[i]=0; else indexnum[i]=$((${indexnum[$(($i-1))]}+1)) ; fi fi
+            # data column
+            if [ -z "${xycol[$i]}" ] ; then
+                # default first & second column
+                if [ -z "${xcol[$i]}" ] ; then 
+                    if [ "${single_col[$i]}x" == "1x" ]  ; then 
+                        firstcol[$i]=0
+                    else
+                        if [ -z ${firstcol[$i]} ] ; then firstcol[$i]=1; fi
+                    fi 
+                    xcol[$i]=${firstcol[$i]}; 
+                fi
+                if [ -z "${ycol[$i]}" ] ; then 
+                    if [ -z "${secondcol[$i]}" ] ; then
+                        if [ "${single_col[$i]}x" == "1x" ] ; then
+                            #increase one-by-one, for same index
+                            if [ $i -eq 0 ] ; then secondcol=1; else secondcol[$i]=$((${secondcol[$(($i-1))]}+1)); fi
+                        else secondcol[$i]=$((${firstcol[$i]}+1)); fi
+                    fi
+                    ycol[$i]=${secondcol[$i]}
+                fi
+                xycol[$i]="${ycol[$i]}";if [ "${single_col[$i]}x" == "0x" ]; then xycol="${xcol[$i]}:${xycol}";fi
+            fi
+            # data 
+            data=" '${infile[$i]}' index ${indexnum[$i]} using ${xycol[$i]}"
+            if [ ! -z "${row[$i]}" ] ; then data="${data} every ${row[$i]} ";fi
+            if [[ "${datatype}" == "data" ]] ; then data="${data} ${linestyle[$i]}";fi
+            data="${data} ${legendi}"
+        fi
+        if [ ${mul_num} -gt 1 ] ; then # only support one line one plot for multi-plot
+            if [ ! -z "${!sllbuf}" ] ; then strpushv $databuf ";" "${!sllbuf}" "plot ${data}";unset $sllbuf;fi
+        else strpush "${data}" $databuf ','; fi
+    done
+
+    # default output figure name
+    if [ -z ${outfile} ] && [ ! -z ${infile} ] ; then
+        outfile=$(pathpart -b ${infile})_$(echo ${indexnum[@]}|sed 's/ /_/g')_${firstcol}_${secondcol}${suffix}
+    fi
+    if [ -z $outfile ] ; then outfile=${defaultoutfile}${suffix}; fi
+    strpush "set output '${outfile}'" $buf
+
+    # push data command into stack
+    case "${datatype}" in
+        "expr"|data*)
+            if [ ${mul_num} -gt 1 ] ; then strpush "${!databuf}" $buf; 
+            else strpushv $buf ";" "${!sllbuf}" "plot ${!databuf}";fi;;
+        "command")
+            strpush "${!cmdbuf}" $buf;;
+        "script")
+            [ ! -z "${script}" ]  && gnuplot <(cat ${script[@]})
+            unset $buf;unset $databuf;unset $sllbuf;unset $cmdbuf;unset $scriptbuf;unset $funcbuf;return;;
+        "testpng") 
+            gnuplot -e "set terminal pngcairo dashed size 1920,1080;set output 'test.png';test;set output"
+               fbi test.png  &> /dev/null;return;;
+        "testeps") gnuplot -e  "set terminal postscript eps color colortext size 1080,720;set output 'test.eps';test;set output"
+                  return;;
+    esac
+    # ====== unset 
+    if [ "${parametric}x" == "1x" ] ; then strpush "unset parametric" $buf; fi
+    strpushv $buf ";"  "set output" "set terminal pop"
+    if [ "${visible}x" == "1x" ] ; then echo; echo ${!buf}|sed 's/;/\n/g'|less;
+    elif [ "${visible}x" == "2x" ] ; then
+        if [ -f "${vfile}" ] ; then echo "${vfile} exists, failed to write commands into ${vfile}."
+        else echo ${!buf}|sed 's/;/\n/g'|tee ${vfile}|less;fi
+    fi
+    eval gnuplot -e '"${!buf}"'
+    fbi ${outfile} &> /dev/null
+    # flush buffer and local variable
+    unset $buf
+    unset $databuf
+    unset $sllbuf 
+    unset $cmdbuf
+    unset $scriptbuf
+    unset $funcbuf
+}
+statblk(){
+    # usage:
+    #   IFS=':' rnn=($(statblk ${datafname}))
+    #   for((i=0;i<${#rnn[@]};++i)) ; do
+    #       echo "$i ${rnn[$i]}"
+    #   done
+    local x
+    local nr
+    local IFS
+    local xx
+    local nxx # variable position of xx
+    local lxx # the physically last positon of xx
+    local exx # exx the effectively last positon of xx
+    local sxx=1 # sxx the effectively first position of xx,default is one
+    local cnr 
+    local i
+    local iii
+    local nb=1 # number of block
+    local nl   # block number of lines 
+    local nnl  # block number of lines, not including lines starting with #
+    local sl=1   # block start line 
+
+    x=$(grep -nvP '\S' $1|xargs|sed 's/ //g')
+    nr=$(wc -l $1 |cut -d' ' -f1)
+    nl=${nr}
+    nnl=nl
+    if [ ! -z "${x}" ] ; then
+        IFS=':' xx=($x)
+        lxx=$((${#xx[@]}-1))
+
+        #for((i=0;i<$((${#xx[@]}));++i)) ; do
+            #echo "$i: ${xx[$i]}"
+        #done
+        #remove heading blanks
+        # nxx, point to the first element of xx,starting from zero
+        nxx=0
+        while [ ${nxx} -le ${lxx} ] && [ ${xx[nxx]} -eq $((${nxx}+1)) ] 
+        do
+            nxx=$((${nxx}+1))
+        done
+        sxx=${nxx}
+        # start line
+        if [ ${nxx} -gt 0 ] ; then # first start line
+            sl=$((${xx[$((${nxx}-1))]}+1))
+        fi
+        #remove trailing blanks
+        # nxx, point to the last element of xx,starting from zero
+        # cnr, effectively last line number
+        nxx=${lxx}
+        cnr=${nr}
+        while [ ${nxx} -ge ${sxx} ] && [ ${xx[${nxx}]} -eq ${cnr} ]
+        do
+            cnr=$((${cnr}-1))
+            nxx=$((${nxx}-1))
+        done
+        exx=${nxx}
+        if [ ${cnr} -lt ${nr} ] ; then #for only one block
+            nl=$((${cnr}-$sl+1))
+        fi
+        # remove single blank, more than two consecutive blank lines
+        # separate a data into two blocks
+        for((i=${sxx};i<=${exx};)) ; do
+            iii=1
+            while [ $((${iii}+${i}))  -le ${exx} ] \
+                && [ ${xx[$((${iii}+${i}))]} -eq $((${xx[$i]}+iii)) ]
+            do
+                iii=$(($iii+1))
+            done
+            if [ $iii -gt 1 ] ; then # at least two blank lines together,add one block
+                nl[$(($nb-1))]=$((${xx[$i]}-${sl[$(($nb-1))]})) #correct previous block number of lines
+                sl[$nb]=$((${xx[$((${iii}+${i}-1))]}+1))
+                nl[$nb]=$(($cnr-${sl[$nb]}+1)) # default last block number of lines
+                nb=$(($nb+1))
+            fi
+            i=$(($i+$iii))
+        done
+    fi
+    #for((i=0;i<$nb;++i)) ; do
+        #echo "$i:   sl=${sl[$i]}, nl=${nl[$i]}"
+    #done
+    #reomve line starting with "#"
+    #echo "nb=${nb} "
+    for((i=0;i<${nb};++i)) ; do
+        nnl[$i]=$((nl[$i]-$(sed -n  "${sl[$i]},$((${sl[$i]}+${nl[$i]}-1))p" $1 \
+            |sed -n "/^\(\s\)*#/p" |wc -l)))
+        #if [ $i -lt $(($nb-1)) ] ; then
+        echo -n "${nnl[$i]}:"
+        #else
+            #echo -n "${nnl[$i]}"
+        #fi
+    done
+    echo 
+}
+
+# ======================= functions to math ============================
+mattranspose(){
+    local ofile=
+    local n=
+    for file in $*
+    do
+        if [ -f ${file} ] ; then
+            ofile="$(pathpart -b ${file})_T.$(pathpart -x ${file})"
+            echo -n '' > ${ofile}
+            n=`head -1 ${file} |wc -w`
+            for i in `seq $n`
+            do
+                echo `awk '{print $'${i}'}' ORS='\t' ${file}` >>${ofile}
+            done
+        fi
+    done
+}
+#   arbitrary precision calculation
+#   using bc
+#   Usage:
+#        float_eval 12.5/3.2
+#        float_eval  100.4/4.2+3.2*6.5
+float_eval()
+{
+    #global single-precision
+    local stat=0
+    local result=0.0
+    local float_scale=${1}
+    shift 
+    if [[ $# -gt 0 ]] ; then
+        #echo "scale=${float_scale};$*"
+        result=$(echo "scale=${float_scale};$*" \
+            |bc -q 2>/dev/null )
+        stat=$?
+        if [[ $stat -eq 0 && -z "$result" ]] ; then
+            stat=1
+        fi
+    fi
+    echo $result
+    return $stat
+}
+float_evali(){
+    local scale=0
+    float_eval ${scale} $* 
+}
+float_evalr(){
+    local scale=6
+    float_eval ${scale} $* 
+}
+float_evald(){
+    local scale=16
+    float_eval ${scale} $* 
+}
+float_evaliv(){
+    for i in $*
+    do 
+        float_evali  ${i}
+    done
+}
+float_evaldv(){
+    for i in $*
+    do 
+        #echo ${i}
+        float_evald  ${i}
+    done
+}
+float_evalrv(){
+    for i in $*
+    do 
+        float_evalr  ${i}
+    done
+}
+d2b(){
+    for i in $*
+    do 
+        echo "obase=2;${i}" |bc
+    done
+}
+
+d2h(){
+
+    for i in $*
+    do 
+        echo "obase=16;${i}" |bc
+    done
+}
+
+d2o(){
+
+    for i in $*
+    do 
+        echo "obase=8;${i}" |bc
+    done
+}
+zeropad(){
+    local n=${1}
+    local pre=${2}
+    shift 2
+    for str in $*
+    do
+        xr=$(for i in $(seq $((${n}-${#str})));do echo -n "${pre}";done)
+        echo "${xr}${str}"
+    done
+}
+#===================================bash string=====================
+strpush() {
+    # add a string into the specified stack
+	local FLAG=0
+	local FS=';'
+        local PATHVARIABLE
+	if [ -z $2 ] ; then
+	   return
+        else
+            local PATHVARIABLE=${2}
+        fi
+	if [ ! -z $3 ] ; then FS=$3;fi
+	#local PATHVARIABLE=${2:-GNUPLOTCMD}
+        #echo "${!PATHVARIABLE}" | awk -F";" '{print NF+1}' 
+        if [  "${1}" ] ; then
+            export $PATHVARIABLE="${!PATHVARIABLE:+${!PATHVARIABLE}${FS}}$1"
+        fi
+}
+strpushv(){
+    local STRVAR=$1
+    local FS=$2
+    local i
+    shift 2
+    for((i=1;i<= $#;++i)) do eval strpush "\"$(echo "\$$i")\"" ${STRVAR} $FS; done
+}
+
+
+#===================================bash compensation=====================
+bashdebugon(){
+    local file
+    if [ $# -eq 0 ] ; then
+        file=${_BASH_DEBUG_}
+    else
+        file=$1
+    fi
+    PS4='command at line $LINENO of function ${FUNCNAME[0]} defined in ${BASH_SOURCE[0]}, called from ${BASH_SOURCE[1]} at line ${BASH_LINENO[0]}: '
+    exec 999> ${file}
+    BASH_XTRACEFD=999
+    set -x
+}
+bashdebugoff(){
+    set +x
+    BASH_XTRACEFD=
+    PS4='+ '
+}
+demobash(){
+    local IFS
+    # how to use
+    if [ $# -lt 1 ]; then
+cat <<_HELP
+    syntax:
+        demodash 1 2 3 
+_HELP
+    return
+    fi
+    # test parameter expansion
+    echo "parameter expansion:"
+    echo '$*'= $*
+    IFS=";" && echo "IFS=;\$*"="$*"
+    echo '$@'=$@
+    IFS=";" && echo "IFS=;\$@"="$@"
+    # test array expansion
+    echo "array expansion:"
+    x=1;x[1]=2;x[2]=3;
+    echo '${x[@]}='${x[@]}
+    echo '"${x[@]}"='"${x[@]}"
+    IFS=";" && echo 'IFS=;${x[@]}='${x[@]}
+    IFS=";" && echo 'IFS=;"${x[@]}"='"${x[@]}"
+    echo '"${x[*]}"='"${x[*]}"
+    echo '${x[*]}='${x[*]}
+    IFS=";" && echo 'IFS=;${x[*]}='${x[*]}
+    IFS=";" && echo 'IFS=;"${x[*]}"='"${x[*]}"
+}
+wordfontsize()
+{
+cat <<_FONTSIZE
+                  Word Font Size
+    -------------------------------------------
+    Font No.      Point(pt)       Milimeter(mm)
+    -------------------------------------------
+      0             42              14.82
+      0s            36              12.70
+      1             26               9.17
+      1s            24               8.47
+      2             22               7.76
+      2s            18               6.35
+      3             16               5.64
+      3s            15               5.29
+      4             14               4.94
+      4s            12               4.23
+      5             10.5             3.70
+      5s             9               3.18
+      6              7.5             2.56
+      6s             6.5             2.29
+      7              5.5             1.94
+      8              5               1.76
+    -------------------------------------------
+    NOTE: 1s mean small No. 1, and so on.
+_FONTSIZE
+}
+
+phyconst()
+{
+cat <<_PHYCONST
+                            Constants in physics
+    --------------------------------------------------------------------------------------
+          value          unit(IS)                    phyical paramter        
+    --------------------------------------------------------------------------------------
+        8.854E-12         F/m                dielectric permittivity of free-space
+        4*piE-7           H/m                magnetic permeability of free-space           
+    --------------------------------------------------------------------------------------
+_PHYCONST
+}
+
+booklist() 
+{
+cat <<_BOOKLIST
+                                    Good Book List
+    --------------------------------------------------------------------------------------
+        Book Name                                                           Note
+    --------------------------------------------------------------------------------------
+       Nabighian - 1987 - Electromagnetic methods in applied geophysics-theory.pdf
+       Smith - 1997 - The Scientist and Engineeer's Guide to Digital Signal Processing.pdf
+    --------------------------------------------------------------------------------------
+_BOOKLIST
+}
+
+problist(){
+cat <<_PROBLIST
+                                 PROBLEM LIST
+    --------------------------------------------------------------------------------------
+               Problem Name                                       Note
+    --------------------------------------------------------------------------------------
+        [1]  Gibb's phenomenon
+        [2]  echo literally  some with many mixed quotes
+        [3]  vim fortran autocompletation
+        [4]  why cultral noise only has odd harmonics
+        [5]  Fourier integral obtained by numerical calculation
+    --------------------------------------------------------------------------------------
+_PROBLIST
+}
+list(){
+    sed -n '/.*()\( \)*{/p' $1|sed 's/{//'
+}
