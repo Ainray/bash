@@ -1,9 +1,9 @@
 #!/bin/gnuplot
 # author: Ainray
-# date: Sat Dec 23 13:24:26 CST 2017
+# date: Sat Dec 23 13:54:10 CST 2017
 
 set terminal push
-set terminal pdfcairo transparent enhanced fontscale 0.4 size 7cm,7cm linewidth 0.5
+set terminal pdfcairo transparent enhanced font 'Sans Bold,12' fontscale 0.4 size 7cm,7cm linewidth 0.5
 set output 'test_dsp_fft1_spec.pdf'
 set encoding utf8
 set style line 1  lw 1.5 lc rgb 'blue' ps 0.3
@@ -11,7 +11,7 @@ set style line 2  lw 1.5 lc rgb 'red' pt 7 ps 0.3
 set style line 3  lw 1.5 lc rgb 'green' ps 0.3
 set style line 4  lw 1.5 lc rgb 'magenta' pt 5 ps 0.3
 set size square
-set title 'FFT\_based fourier integral of e^{-x}' offset 1 font 'Symbol Bold,24'
+set title 'FFT\_based fourier integral of e^{-x}' offset 1 font 'Symbol Bold,19'
 set key font 'Times Bold,16'
 set key right center samplen 0.8 
 set logscale y

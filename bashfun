@@ -796,6 +796,7 @@ options:
             --is|iso|--isosamples 50
             -k|--key "bottom right"|"outside top center"|"left bottom Left box font 'Times,15'"
                      "at graph .9,.9 spacing 2 font 'Helvetica,14'"
+                     "right center samplen 0.8"
             -l|--legend [legent list]
             --label "'Approximation error' right at 2.4,0.45 offset -.5,0 font 'Helvetica,20'"
             --lc|--line-color 'rgb "#FF0000"'
@@ -823,8 +824,10 @@ options:
                             [gray positive]
             --pm3d [at b|s]
             --polaron [1,1,...]
-            --ps|--point-size
-            --pti|--point-type-index
+            --print
+            --ps|--pointsize
+            --pt|--pointtype 7
+            -q|--quiet {do not open figure after it is plotted}
             --row  ::20::80
             -s|--second
             --sam|samp|--sample|--samples 200
@@ -960,6 +963,7 @@ __PLOTHELP__
     local enhan=
     local font=
     local fontscale=
+    local interlace=
     local mono=
     local term='png'
     local tran=
@@ -1006,7 +1010,7 @@ __PLOTHELP__
     local linetypeindex=
     local linecolor=
     local linewidth=
-    local pointtypeindex=
+    local pointtype=
     local pointsize=
     #legend and labels
     local arrow=
@@ -1071,6 +1075,8 @@ __PLOTHELP__
     local isff=0     # check first parameter is input file, supress help output
     local debugon=0  #
     local cmd=       # finally execute commands
+    local quiet=0
+    local printtofile=0
     
     # parameter parsing
     # check first parameter is a file or not
@@ -1119,7 +1125,7 @@ __PLOTHELP__
                 while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do cntrparam[$i]="$2"; i=$(($i+1));shift; done
                 shift;;
             "--crop")
-                crop="$2";shift;;
+                crop="$2";shift 2 ;;
             "-d"|"--debug")
                 debugon=1;shift;;
             # input date file
@@ -1183,6 +1189,8 @@ __PLOTHELP__
                 i=0
                 while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do indexnum[$i]="$2"; i=$(($i+1));shift; done
                 shift;;
+            "--interlace")
+                interlace="$2";shift 2;;
             "--is"|"--iso"|"--isosamples")
                 isosamples="$2";shift 2;;
             "-H"|"--HELP")
@@ -1283,14 +1291,18 @@ __PLOTHELP__
                 i=0
                 while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do polaron[$i]=$2; i=$(($i+1));shift; done
                 shift;;
-            "--ps"|"--point-size")
+            "--print")
+                printtofile="$2";shift 2;;
+            "--ps"|"--pointsize")
                 i=0
                 while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do pointsize[$i]="$2"; i=$(($i+1));shift; done
                 shift;;
-            "--pti"|"--point-type-index")
+            "--pt"|"--pointtype")
                 i=0
-                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do pointtypeindex[$i]="$2"; i=$(($i+1));shift; done
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do pointtype[$i]="$2"; i=$(($i+1));shift; done
                 shift;;
+            "-q"|"quiet")
+                quiet=1;shift;;
             "--row")
                 i=0
                 while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do row[$i]="$2"; i=$(($i+1));shift; done
@@ -1406,7 +1418,7 @@ __PLOTHELP__
             "--xycol")
                 i=0
                 while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do xycol[$i]="$2"; i=$(($i+1));shift; done
-                shift;;
+                graphnumber=$i;shift;;
             "--xyp"|"--xyplane")
                 i=0
                 while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do xyp[$i]="$2"; i=$(($i+1));shift; done
@@ -1462,28 +1474,83 @@ __PLOTHELP__
     done
     #====== terminal confugration pushed in $prebuf
     case "${term}" in
-        "eps"|"epscairo"|"pdf"|"pdfcairo")
-            if [ "${term}" == "eps" ]  || [ "${term}" == "pdf" ]; then term="${term}cairo";fi
-            suffix=".${term%cairo}"; open="fbgs -r 300";
-            if [ -z "${tsize}" ] ; then tsize="4.00in,2.5in";fi
-            if [ -z "${fontscale}" ]; then fontscale="0.5"; fi
-            if [ -z "${enhan}" ]; then enhan="enhanced";fi
-            if [ -z "${tran}" ]; then tran="transparent";fi
+        "eps"|"epscairo")
+            if [ "${term}" == "eps" ]; then term="${term}cairo";fi
+            suffix=".${term%cairo}";
+            tsize="7cm,7cm" 
+            enhan="enhanced"
+            fontscale="0.4"
+            font="Sans Bold,12"
+            tran="transparent"
+            [[ ! -z "${legend}" ]] && [[ ! "${key}" =~ "font" ]] && key="font 'Times Bold,16'${key:+;${key}}"
+            [[ ! -z "${xlabel}" ]] && [[ ! "${xlabel}" =~ "font" ]] && xlabel="font 'Helvetica Bold,18'${xlabel:+;${xlabel}}"
+            [[ ! -z "${ylabel}" ]] && [[ ! "${ylabel}" =~ "font" ]] && ylabel="font 'Helvetica Bold,18'${ylabel:+;${ylabel}}"
+            [[ ! -z "${y2label}" ]] && [[ ! "${y2label}" =~ "font" ]] && y2label="font 'Helvetica Bold,18'${y2label:+;${y2label}}"
+            [[ ! "${title}" =~ "font" ]] && title="${title:+${title} font 'Symbol Bold,19'}"
+            linewidth="${linewidth:-1.5}"
+            pointsize="${pointsize:-0.3}"
             if [ -z "${terminal}" ] ; then 
-                terminal="${term} ${tran} ${enhan} fontscale ${fontscale} size ${tsize} linewidth 1.2"
-            fi;;
+                terminal="${term} ${tran} ${enhan} font '${font}' fontscale ${fontscale} size ${tsize} linewidth 0.5"
+            fi 
+            ;;
+        "pdf"|"pdfcairo")
+            if [ "${term}" == "pdf" ]; then term="${term}cairo";fi
+            suffix=".${term%cairo}"; open="fbgs -r 600";
+            tsize="7cm,7cm" 
+            enhan="enhanced"
+            font="Sans Bold,12"
+            fontscale="0.4"
+            tran="transparent"
+            linewidth="${linewidth:-1.5}"
+            pointsize="${pointsize:-0.3}"
+            [[ ! -z "${legend}" ]] && [[ ! "${key}" =~ "font" ]] && key="font 'Times Bold,16'${key:+;${key}}"
+            [[ ! -z "${xlabel}" ]] && [[ ! "${xlabel}" =~ "font" ]] && xlabel="font 'Helvetica Bold,18'${xlabel:+;${xlabel}}"
+            [[ ! -z "${ylabel}" ]] && [[ ! "${ylabel}" =~ "font" ]] && ylabel="font 'Helvetica Bold,18'${ylabel:+;${ylabel}}"
+            [[ ! -z "${y2label}" ]] && [[ ! "${y2label}" =~ "font" ]] && y2label="font 'Helvetica Bold,18'${y2label:+;${y2label}}"
+            [[ ! "${title}" =~ "font" ]] && title="${title:+${title} font 'Symbol Bold,19'}"
+            if [ -z "${terminal}" ] ; then 
+                terminal="${term} ${tran} ${enhan} font '${font}' fontscale ${fontscale} size ${tsize} linewidth 0.5"
+            fi 
+            ;;
         "jpeg"|"jpg"|"png"|"pngcairo")
             if [ "${term}" == "jpeg" ] || [ "${term}" == "jpg" ]; then suffix='.jpg';term="jpeg";fi
             if [ "${term}" == "png" ] ; then term="${term}cairo";fi; suffix=".${term%cairo}"
-            if [ -z "${tsize}" ] ; then tsize="1080,720";fi
-            if [ -z "${font}" ] ; then font="Arial,15";fi
-            if [ -z "${fontscale}" ]; then fontscale="1"; fi
-            if [ -z "${crop}" ]; then crop="nocrop";fi
-            if [ -z "${enhan}" ]; then enhan="enhanced";fi
-            if [ -z "${tran}" ]; then tran="notransparent";fi
-            if [ -z "${terminal}" ] ; then 
-                terminal="${term} ${crop} ${tran} ${enhan} fontscale ${fontscale} font '${font}' size ${tsize} linewidth 1.2";
-            fi ;;
+            if [ "${printtofile}x" == "1x" ]; then 
+                tsize="1800,1800" #600dpi,2.4inch(about 6cm),20% crop,however,10cm is every good
+                crop="crop"
+                enhan="enhanced"
+                font="Arial Bold,54"
+                interlace="interlace"
+                tran="notransparent"
+                [[ ! -z "${legend}" ]] && [[ ! "${key}" =~ "font" ]] && key="font 'Times Bold,50'${key:+;${key}}"
+                [[ ! "${title}" =~ "font" ]] && title="${title:+${title} font 'Times Bold,80'}"
+                linewidth="${linewidth:-2}"
+                pointsize="${pointsize:-3}"
+                if [ -z "${terminal}" ] ; then 
+                    terminal="${term} ${interlace} ${crop} ${tran} ${enhan} font '${font}' size ${tsize} linewidth 5";
+                fi 
+            else
+                if [ -z "${tsize}" ] ; then tsize="1080,720";fi
+                if [ -z "${font}" ] ; then font="Arial,15";fi
+                if [ -z "${fontscale}" ]; then fontscale="1.0"; fi
+                if [ -z "${crop}" ]; then crop="crop";fi
+                if [ -z "${enhan}" ]; then enhan="enhanced";fi
+                if [ -z "${tran}" ]; then tran="notransparent";fi
+                linewidth="${linewidth:-1.5}"
+                pointsize="${pointsize:-1}"
+                if [ -z "${terminal}" ] ; then 
+                    terminal="${term} ${crop} ${tran} ${enhan} fontscale ${fontscale} font '${font}' size ${tsize} linewidth 1.2";
+                fi 
+            fi
+            #if [ "${printtofile}x" == "2x" ]; then #black 
+                #linestyle[0]="lt -1"
+                #linestyle[1]="lt -1 pi -4 pt 6"
+                #linestyle[2]="lt -1 pi -3 pt 7 ps 2"
+                #linestyle[3]="lt -1 pi -6 pt 7"
+                #linestyle[4]="lt -1 pi -3 pt 4"
+                #linestyle[5]="lt -1 pi -5 pt 5"
+            #fi
+            ;;
         *) 
             term="pngcairo";suffix=".png"; if [ -z "${terminal}" ] ; then  terminal="${term}";fi;;
     esac
@@ -1496,7 +1563,8 @@ __PLOTHELP__
     strpush "set output '${outfile}'" $prebuf
     if [ ! -z "${samples}" ]; then strpush "set samples ${samples}" $prebuf;fi
     if [ ! -z "${isosamples}" ]; then strpush "set isosamples ${isosamples}" $prebuf;fi
-    if [ "${utf8}x" == "1x" ] ; then strpush "set encoding utf8" $prebuf; fi
+    strpush "set encoding utf8" $prebuf 
+    #if [ "${utf8}x" == "1x" ] ; then strpush "set encoding utf8" $prebuf; fi
     if [ ! -z "${dummy}" ]; then strpush "set dummy ${dummy}" $prebuf;fi
     if [ "${multiploton}x" == "1x" ] ; then strpush "set multiplot ${multiplot}" $prebuf;fi
 
@@ -1532,16 +1600,17 @@ __PLOTHELP__
             if [ ! -z "${fill[$i]}" ] ; then strpush "set style fill ${fill[$i]}" $graphbuf; fi
             if [ ! -z "${hist[$i]}" ] ; then strpushv $graphbuf ";" "set style data histograms" "set style histogram ${hist[$i]}";fi
             if [ ! -z "${title[$i]}" ] ; then strpush "set title ${title[$i]}" $graphbuf ;fi
-            if [ "${key[$i]}x" == "0x" ];then strpush "unset key" $graphbuf;
-            elif [ ! -z "${key[$i]}" ] ; then strpush "set key ${key[$i]}" $graphbuf; fi
             if [ ! -z "${border[$i]}" ]; then eval strpush \"$(gnupara "${border[$i]}" "border")\"  $graphbuf;fi;
             if [ ! -z "${boxwidth[$i]}" ] ; then strpush "set boxwidth ${boxwidth[$i]}" $graphbuf; fi
             if [ ! -z "${zeroaxis[$i]}" ] ; then strpush "set ${zeroaxis[$i]}" $graphbuf; fi
-            if [ ! -z "${logscale[$i]}" ] ; then strpush "set logscale ${logscale[$i]}" $graphbuf; fi
             if [ ! -z "${cblim[$i]}" ]; then eval strpush \"$(gnupara "${cblim[$i]}" "cbrange")\"  $graphbuf;fi;
             if [ ! -z "${clrbx[$i]}" ]; then eval strpush \"$(gnupara01 "${clrbx[$i]}" "colorbox")\"  $graphbuf;fi;
             if [ ! -z "${cntrlabel[$i]}" ]; then eval strpush \"$(gnupara "${cntrlabel[$i]}" "cntrlabel")\"  $graphbuf;fi;
             if [ ! -z "${cntrparam[$i]}" ]; then eval strpush \"$(gnupara "${cntrparam[$i]}" "cntrparam")\"  $graphbuf;fi;
+            if [ ! -z "${key[$i]}" ]; then eval strpush \"$(gnupara "${key[$i]}" "key")\"  $graphbuf;fi;
+            if [ ! -z "${logscale[$i]}" ]; then eval strpush \"$(gnupara "${logscale[$i]}" "logscale")\"  $graphbuf;fi;
+            if [ ! -z "${formatx[$i]}" ]; then strpush "set format x ${formatx[$i]}"   $graphbuf;fi;
+            if [ ! -z "${formaty[$i]}" ]; then strpush "set format y ${formaty[$i]}"   $graphbuf;fi;
             if [ ! -z "${tlim[$i]}" ] ; then strpush "set trange ${tlim[$i]}" $graphbuf; fi
             if [ ! -z "${ulim[$i]}" ] ; then strpush "set urange ${ulim[$i]}" $graphbuf; fi
             if [ ! -z "${vlim[$i]}" ] ; then strpush "set vrange ${vlim[$i]}" $graphbuf; fi
@@ -1550,21 +1619,15 @@ __PLOTHELP__
             if [ ! -z "${x2lim[$i]}" ] ; then strpush "set x2range ${x2lim[$i]}" $graphbuf; fi
             if [ ! -z "${y2lim[$i]}" ] ; then strpush "set y2range ${y2lim[$i]}" $graphbuf; fi
             if [ ! -z "${zlim[$i]}" ] ; then strpush "set zrange ${zlim[$i]}" $graphbuf; fi
+            if [ ! -z "${rtic[$i]}" ]; then eval strpush \"$(gnupara "${rtic[$i]}" "rtics")\"  $graphbuf;fi;
             if [ ! -z "${tic[$i]}" ]; then eval strpush \"$(gnupara "${tic[$i]}" "tics")\"  $graphbuf;fi;
             if [ ! -z "${xtic[$i]}" ]; then eval strpush \"$(gnupara "${xtic[$i]}" "xtics")\"  $graphbuf;fi;
             if [ ! -z "${ytic[$i]}" ]; then eval strpush \"$(gnupara "${ytic[$i]}" "ytics")\"  $graphbuf;fi;
-            if [ "${rtic[$i]}x" == "0x" ];then strpush "unset rtics" $graphbuf;
-            elif [ ! -z "${rtic[$i]}" ] ; then strpush "set rtics ${rtic[$i]}" $graphbuf; fi
-            if [ "${ztic[$i]}x" == "0x" ] ; then strpush "unset ztics" $graphbuf;
-            elif [ ! -z "${ztic[$i]}" ] ; then strpush "set ztics ${ztic[$i]}" $graphbuf; fi
-            if [ ! -z "${x2tic[$i]}" ] ; then strpush "set x2tics ${x2tic[$i]}" $graphbuf; fi
+            if [ ! -z "${ztic[$i]}" ]; then eval strpush \"$(gnupara "${ztic[$i]}" "ztics")\"  $graphbuf;fi;
+            if [ ! -z "${x2tic[$i]}" ]; then eval strpush \"$(gnupara "${x2tic[$i]}" "x2tics")\"  $graphbuf;fi;
             if [ ! -z "${y2tic[$i]}" ]; then eval strpush \"$(gnupara "${y2tic[$i]}" "y2tics")\"  $graphbuf;fi;
-            if [ ! -z "${xmtic[$i]}" ] ; then strpush "set mxtics ${xmtic[$i]}" $graphbuf; fi
-            if [ ! -z "${ymtic[$i]}" ] ; then strpush "set mytics ${ymtic[$i]}" $graphbuf; fi
-            if [ ! -z "${x2mtic[$i]}" ] ; then strpush "set mx2tics ${x2mtic[$i]}" $graphbuf; fi
-            if [ ! -z "${y2mtic[$i]}" ] ; then strpush "set my2tics ${y2mtic[$i]}" $graphbuf; fi
-            if [ ! -z "${formatx[$i]}" ]; then strpush "set format x ${formatx[$i]}"   $graphbuf;fi;
-            if [ ! -z "${formaty[$i]}" ]; then strpush "set format y ${formaty[$i]}"   $graphbuf;fi;
+            if [ ! -z "${x2mtic[$i]}" ]; then eval strpush \"$(gnupara "${x2mtic[$i]}" "mx2tics")\"  $graphbuf;fi;
+            if [ ! -z "${y2mtic[$i]}" ]; then eval strpush \"$(gnupara "${y2mtic[$i]}" "my2tics")\"  $graphbuf;fi;
             if [ ! -z "${xlabel[$i]}" ]; then eval strpush \"$(gnupara "${xlabel[$i]}" "xlabel")\"  $graphbuf;fi;
             if [ ! -z "${x2label[$i]}" ]; then eval strpush \"$(gnupara "${x2label[$i]}" "x2label")\"  $graphbuf;fi;
             if [ ! -z "${ylabel[$i]}" ]; then eval strpush \"$(gnupara "${ylabel[$i]}" "ylabel")\"  $graphbuf;fi;
@@ -1579,35 +1642,35 @@ __PLOTHELP__
         #                        otherwise, whole data block is given, similar with expression
         if [ "${multiploton}x" == "1x" ]; then datablock= ;fi
         if [[ "${datamode}" =~ "data" ]] &&  [ -z "${data[$i]}" ]; then  
-            if [ "${multiploton}x" == "1x" ] && [ -z "${infile[$i]}" ]; then infile[$i]="${infile[$[$i-1]]}";fi
-            data[$i]=" '${infile}' "
             if [ "${xycol[$i]}x" != "0x" ]; then
-                if [ -z ${indexnum[$i]} ] ; then  indexnum[$i]=0;fi # index
-                if [ -z "${xycol[$i]}" ] ; then # data column
-                    if [ -z "${secondcol[$i]}" ] ; then
+                if [ -z "${xycol[$i]}" ] ; then 
+                    if [ -z "${secondcol[$i]}" ] ; then # data column
                         if [ "${firstcol}x" == "0x" ];then # one column
                             if [ $i -eq 0 ] ; then secondcol=1; else secondcol[$i]=$((${secondcol[$(($i-1))]}+1)); fi
                         else 
                             secondcol[$i]=$((${firstcol[$i]}+1)); 
                         fi
                     fi
-                    xycol[$i]="${firstcol[$i]:+${firstcol[$i]}:}${secondcol[$i]}"
-                    data[$i]="${data[$i]} "
+                    xycol[$i]="i ${indexnum[$i]:-0} u ${firstcol[$i]:+${firstcol[$i]}:}${secondcol[$i]} ${row[$i]:+ every ${row[$i]}}"
                 fi
-                data[$i]="${data[$i]} index ${indexnum[$i]} using ${xycol[$i]}"
-                if [ ! -z "${row[$i]}" ] ; then data[$i]="${data[$i]} every ${row[$i]} ";fi
+                data[$i]="${data[$i]} ${xycol[$i]}"
             fi
         fi
         # binding with linemode and legend, all in "datablock" buffer for one graph
         if [[ "${data[$i]}" =~ ";" ]] ; then # multiple lines for one graph
             unset datap;strsplit "${data[$i]}" ";" datap
             for((iline=0;iline<${#datap[@]};++iline)) do
-                if [ ! -z "${linemode[$linenum]}" ]; then linemode[$linenum]="w ${linemode[$linenum]}";fi
+                #[[ ! "${linemode[$linenum]}" =~ "lt" ]] && linemode[$linenum]="${linemode[$i]:+w ${linemode[$linenum]}}";
+                linemode[$linenum]="w ${linemode[$i]:+ ${linemode[$linenum]}}";
                 if [ "${linestyleindex[$linenum]}x" != "0x" ]; then
                     linemode[$linenum]="${linemode[$linenum]} ls ${linestyleindex[$linenum]:-$[${linenum}+1]}"
                 fi
                 legendi='notitle'; if [ ! -z "${legend[$[$linenum]]}" ] ; then legendi="title '${legend[$linenum]}'"; fi
-                datablock="${datablock:+${datablock},}${datap[$iline]} ${linemode[$linenum]} ${legendi}";
+                if [[ "${datamode}" =~ "data"  ]];then
+                    datablock="${datablock:+${datablock},}'${infile[$linenum]}' ${datap[$iline]} ${linemode[$linenum]} ${legendi}";
+                else
+                    datablock="${datablock:+${datablock},}${datap[$iline]} ${linemode[$linenum]} ${legendi}";
+                fi
                 linenum=$[$linenum+1]
             done
         else 
@@ -1616,7 +1679,12 @@ __PLOTHELP__
                 linemode[$linenum]="${linemode[$linenum]} ls ${linestyleindex[$linenum]:-$[${linenum}+1]}"
             fi
             legendi='notitle'; if [ ! -z "${legend[$[$linenum]]}" ] ; then legendi="title '${legend[$linenum]}'"; fi
-            datablock="${datablock:+${datablock},}${data[$i]} ${linemode[$linenum]} ${legendi}";
+            if [[ "${datamode}" =~ "data"  ]];then
+                if [ -z "${infile[$linenum]}" ]; then infile[$linenum]="${infile[$[$linenum-1]]}";fi
+                datablock="${datablock:+${datablock},}'${infile[$linenum]}' ${data[$iline]} ${linemode[$linenum]} ${legendi}";
+            else
+                datablock="${datablock:+${datablock},}${data[$iline]} ${linemode[$linenum]} ${legendi}";
+            fi
             linenum=$[$linenum+1]
         fi
         # bind graph setting $graphbuf and "datablock" together, pushed in $databuf
@@ -1641,18 +1709,20 @@ __PLOTHELP__
         #line style: user-defiined or default value
         #        set line style, can setting totally by linestyle, directly pushed into  buffer $prebuf
         #        and line details, including linetype, linewidth, line color, point type, point size,...
-        if [ $i -gt 0 ] && [ -z "${linecolor[$i]}" ]; then linecolor[$i]="${linecolor[$[$i-1]]}";fi
+        if [ $i -gt 0 ] && [ -z "${linecolor[$i]}" ] && [ "${multiploton}x" == "1x" ]; then linecolor[$i]="${linecolor[$[$i-1]]}";fi
+        if [ $i -gt 0 ] && [ -z "${linewidth[$i]}" ]; then linewidth[$i]="${linewidth[$[$i-1]]}";fi
+        if [ $i -gt 0 ] && [ -z "${pointsize[$i]}" ]; then pointsize[$i]="${pointsize[$[$i-1]]}";fi
         if [ -z "${linestyle[$i]}" ] ; then 
             linestyle[$i]=$(strcat "${linetypeindex[$i]:+ lt ${linetypeindex[$i]}}" \
             "${linewidth[$i]:+ lw ${linewidth[$i]}}" "${linecolor[$i]:+ lc ${linecolor[$i]}}" \
-            "${pointtypeindex[$i]:+ pt ${pointtypeindex[$i]}}" "${pointsize[$i]:+ ps ${pointsize[$i]}}" \
+            "${pointtype[$i]:+ pt ${pointtype[$i]}}" "${pointsize[$i]:+ ps ${pointsize[$i]}}" \
             "${dashtypeindex[$i]:+ dt ${dashtypeindex[$i]}}")
         fi
         if [ -z "${linestyleindex[$i]}" ] || [ "${linestyleindex[$i]}x" == "0x" ]; then linestyleindex[$i]=$[$i+1];fi
         if [ ! -z "${linestyle[$i]}" ] ; then strpush "set style line ${linestyleindex[$i]} ${linestyle[$i]}" $prebuf;
-        elif [ "${multiploton}x" == "1x" ] || [ $i -eq 0 ]; then
-            strpush "set style line ${linestyleindex[$i]} lt -1 lw 2 ps 1.2" $prebuf
-        else strpush "set style  line ${linestyleindex[$i]} lt $[$i+1] lw 2 ps 1.2" $prebuf;fi
+        elif [ "${multiploton}x" == "1x" ] || [ $linestylenum -eq 0 ]; then
+            strpush "set style line ${linestyleindex[$i]} lt -1 lw 2" $prebuf
+        else strpush "set style  line ${linestyleindex[$i]} lt $[$i+1] lw 2" $prebuf;fi
     done
     # ====== post configuration, pushed in $postbuf 
     if [ "${multiploton}x" == "1x" ] ; then strpush "unset multiplot" $postbuf;fi
@@ -1662,14 +1732,10 @@ __PLOTHELP__
     case "${datamode}" in
         "command")
             strpushv $buf ";" "${!funcbuf}" "${!prebuf}" "${!cmdbuf}" "${!postbuf}"
-            cmd='gnuplot <(echo "${!buf}"); ${open} ${outfile} &> /dev/null' ;;
+            cmd='gnuplot <(echo "${!buf}")';;
         "expression"|data*)
-            if [ "${multiploton}x" == "1x" ] ; then 
-                strpushv $buf ";" "${!funcbuf}" "${!prebuf}" "${!databuf}" "${!postbuf}" 
-            else
-                strpushv $buf ";" "${!funcbuf}" "${!prebuf}" "${!databuf}" "${!postbuf}"
-            fi
-            cmd='gnuplot <(echo "${!buf}"); ${open} ${outfile} &> /dev/null' ;;
+            strpushv $buf ";" "${!funcbuf}" "${!prebuf}" "${!databuf}" "${!postbuf}" 
+            cmd='gnuplot <(echo "${!buf}")';;
         "flush")
             cmd='unset $buf; unset $cmdbuf;unset $databuf;unset $funcbuf;'
             cmd="${cmd}"'unset $graphbuf;unset $prebuf;unset $postbuf; unset $testbuf';;
@@ -1730,14 +1796,32 @@ __PLOTHELP__
             strpushv $buf ";" "${!prebuf}" "${!testbuf}" "${!postbuf}"
             cmd='gnuplot <(echo "${!buf}"); ${open} ${outfile} &> /dev/null';;
     esac
-    if [ "${debugon}x" == "1x" ]; then cmd='echo "#!/bin/gnuplot;# author: Ainray;# date: `date`;;${!buf}"|sed "s/;/\n/g"|less';fi
+    if [ "${debugon}x" == "1x" ]; then cmd='echo "#!/bin/gnuplot;# author: Ainray;# date: `date`;;${!buf}"|sed "s/;/\n/g"|less';
+    else
+        case "${datamode}" in  # direct open in terminal
+            "command"|"expression"|data*)
+                # convert eps to pdf and png
+                if [ "${term}" == "epscairo" ]; then
+                    cmd="${cmd};"'gs -o -q -sDEVICE=png256 -dEPSCrop -r600 -o${outfile%${suffix}}_eps.png ${outfile} >/dev/null'
+                elif [ "${term}" == "pdfcairo" ]; then
+                    cmd="${cmd};"'gs -o -q -sDEVICE=png256 -dPDFCrop -r600 -o${outfile%${suffix}}_pdf.png ${outfile} >/dev/null'
+                fi
+                if [ "${quiet}x" != "1x" ]; then
+                    if [ "${term}" == "epscairo" ]; then
+                        cmd="${cmd};"'${open} ${outfile%${suffix}}_eps.png &> /dev/null'
+                    elif [ "${term}" == "epscairo" ]; then
+                        cmd="${cmd};"'${open} ${outfile%${suffix}}_pdf.png &> /dev/null'
+                    else
+                    cmd="${cmd};"'${open} ${outfile} &> /dev/null'
+                    fi
+                fi
+            ;;
+        esac
+    fi
+    [ "${datamode}" != "flush" ] && cmd="${cmd};"'unset $buf; unset $cmdbuf;unset $databuf;unset $funcbuf;' \
+            && cmd="${cmd}"'unset $graphbuf;unset $prebuf;unset $postbuf; unset $testbuf'
     #echo ${cmd}
     eval ${cmd}
-    if [ "${datamode}" != "flush" ]; then 
-        cmd='unset $buf; unset $cmdbuf;unset $databuf;unset $funcbuf;'
-        cmd="${cmd}"'unset $graphbuf;unset $prebuf;unset $postbuf; unset $testbuf'
-        eval ${cmd}
-    fi
 }
 
 gnupara(){
@@ -1796,7 +1880,7 @@ gnupara01(){
         elif [ "${buf[$i]}x" == "1x" ]; then 
             output="${output:+${output};}set ${pre}"
         elif [[ "${buf[$i]}" =~ "for" ]]; then
-           #output="${output:+${output};}set ${buf[$i]}"
+           output="${output:+${output};}set ${buf[$i]}"
         else
             output="${output:+${output};}set ${pre} ${buf[$i]}"
         fi
@@ -2017,7 +2101,13 @@ function strcat(){
     echo "${output}"
 }
 
-strpush() {
+strpt(){
+    local IFS=$'\x1B'
+    echo $'\x27'$@$'\x27'
+}
+
+
+strpush(){
     # add a string into the specified stack
 	local FLAG=0
 	local FS=';'
