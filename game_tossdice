@@ -1,0 +1,80 @@
+#!/bin/bash
+########################################################################
+#                                                                      #
+# author:        Ainray                                                #
+#                                                                      #
+# email:         wwzhang0421@163.com                                   #
+#                                                                      #
+# file:          game_tossdice                                         #
+#                                                                      #
+# created:       2017-12-25 20:23:39                                   #
+#                                                                      #
+# modified:      2017-12-26 19:17:43                                   #
+#                                                                      #
+# introduction:  bash game of tossing a dice.                          #
+#                                                                      #
+# license:       Public license.                                       #
+#                                                                      #
+########################################################################
+one=0
+two=0
+three=0
+four=0
+five=0
+six=0
+all=0
+update(){
+    case "$1"  in
+        1) ((one++));;
+        2) ((two++));;
+        3) ((three++));;
+        4) ((four++));;
+        5) ((five++));;
+        6) ((six++));;
+    esac
+}
+
+num=
+key="not yet press"
+while [ "$key" != "q" ]; do
+    clear
+    echo "=========================================="
+    echo 
+    echo "          Bash game: toss a dice        "
+    echo 
+    echo " < Press any key to toss.>"
+    echo " < Press 's' to save statistics.>" 
+    echo " < Press 'q' to quit.>" 
+    echo 
+    echo "current dice: $num"
+    echo 
+    echo "Statistics: times=$all"
+    echo "------------------------------------------"
+    echo "one    two    three    four    five    six"
+    printf  "%-3d    " $one
+    printf  "%-3d    " $two
+    printf  "%-5d    " $three
+    printf  "%-4d    " $four
+    printf  "%-4d    " $five
+    printf  "%-3d    \n" $six
+    echo "=========================================="
+    read -s -N1 -p "Press a key: " key
+    if [ "$key" == "s" ];then
+        echo "Statistics: times=$all"  > game_tossdicestatistics
+        echo "------------------------------------------"  >> game_tossdicestatistics
+        echo "one    two    three    four    five    six"  >> game_tossdicestatistics
+        printf  "%-3d    " $one  >> game_tossdicestatistics
+        printf  "%-3d    " $two  >> game_tossdicestatistics
+        printf  "%-5d    " $three  >> game_tossdicestatistics
+        printf  "%-4d    " $four  >> game_tossdicestatistics
+        printf  "%-4d    " $five  >> game_tossdicestatistics
+        printf  "%-3d    \n" $six  >> game_tossdicestatistics
+        echo 
+        echo "Statistics result is stored in game_tossdicestatistics."
+        break
+    fi
+    let "num= (($RANDOM % 6 + 1))"
+    let "all++"
+    update $num
+done
+echo 

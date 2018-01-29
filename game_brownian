@@ -1,0 +1,61 @@
+#!/bin/bash
+########################################################################
+#                                                                      #
+# author:        Ainray                                                #
+#                                                                      #
+# email:         wwzhang0421@163.com                                   #
+#                                                                      #
+# file:          game_brown                                            #
+#                                                                      #
+# created:       2017-12-25 13:47:51                                   #
+#                                                                      #
+# modified:      2017-12-25 19:13:09                                   #
+#                                                                      #
+# introduction:  Simulate Brownian motion.                             #
+#                                                                      #
+# license:       Public license.                                       #
+#                                                                      #
+########################################################################
+#
+#for repeat a string, special for those without IFS in it
+#main program
+OFS=$IFS
+num=20     #box limit
+let "numc=(($num*2))"
+
+## zero matrix
+zero(){
+    for((i=0;i<$1;++i));do
+        for((j=0;j<$2;++j));do
+            eval "$3$i[$j]=0"
+        done
+    done
+    local i
+    local j
+}
+    # test zero
+zero $num $numc bmat
+
+while true; do
+    clear
+    let "ir=(($RANDOM%$num))"
+    let "ic=(($RANDOM%$numc))"
+    #echo "bmat$ir[$ic]=1"
+    eval "bmat$ir[$ic]=1"
+    echo "========================================"
+    echo 
+    echo "       Bash game: Brownian motion       "
+    echo 
+    echo "       <Ctrl+C to quit.>                "
+    echo 
+    echo "========================================"
+    IFS=""
+    for((i=0;i<$num;++i));do
+        eval "row=\"\${bmat$i[*]}\""
+        row=${row//0/" "}
+        row=${row//1/"."}
+        echo ${row}
+    done
+    echo "========================================"
+    sleep 1
+done

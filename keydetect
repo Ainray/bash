@@ -1,0 +1,75 @@
+#!/bin/bash
+########################################################################
+#                                                                      #
+# author:        Ainray                                                #
+#                                                                      #
+# email:         wwzhang0421@163.com                                   #
+#                                                                      #
+# file:          keydetect                                             #
+#                                                                      #
+# created:       2017-12-25 23:43:06                                   #
+#                                                                      #
+# modified:      2017-12-27 13:28:12                                   #
+#                                                                      #
+# introduction:  Detecting a key press.                                #
+#                                                                      #
+# license:       Public license.                                       #
+#                                                                      #
+########################################################################
+keydetect(){
+    #from tldp.org/LDP/abs/html/escapingsection.html
+    #example 5-3
+    key="no value yet"
+    while true; do
+        clear
+        echo "Bash extra keys demo. Keys to try:"
+        echo 
+        echo "* Insert, Delete, Home, End, Page_Up and Page_Down"
+        #ascii         7F
+        echo "* The four arrow key"
+        echo "* Tab, enter, escape, and space"
+        echo "* The letter and number key, etc."
+        echo 
+        echo " q quit"
+        echo "========================================"
+        echo 
+        #  how bash map keys, refer to /etc/inputrc
+        #  convert home-key to home-key_num-7
+        #          end-key to end-key_num-1
+        #                 Esc  O   H                 Esc  [   1  ~ 
+        if [ "$key" == $'\x1b\x4f\x48' ];then key=$'\x1b\x5b\x31\x7e';fi
+        #                 Esc  O   F                 Esc  [   4  ~ 
+        if [ "$key" == $'\x1b\x4f\x46' ];then key=$'\x1b\x5b\x34\x7e';fi
+        case "$key" in
+            #  Esc  [   1   ~
+            $'\x1b\x5b\x31\x7e') echo Home ;;
+            $'\x1b\x5b\x32\x7e') echo Insert ;;
+            $'\x1b\x5b\x33\x7e') echo Delete ;;
+            $'\x1b\x5b\x34\x7e') echo End ;;
+            $'\x1b\x5b\x35\x7e') echo Page Up ;;
+            $'\x1b\x5b\x36\x7e') echo Page Down ;;
+            #  Esc  [   A
+            $'\x1b\x5b\x41') echo Up;;
+            $'\x1b\x5b\x42') echo Down;;
+            $'\x1b\x5b\x43') echo Right;;
+            $'\x1b\x5b\x44') echo Left;;
+            $'\x09') echo Tab;;
+            $'\x0a') echo Enter;;
+            $'\x1b') echo Esc;;
+            $'\x20') echo Space;;
+            q) return 0 ;;
+            *) echo "$key";;
+        esac
+        echo 
+        echo "========================================"
+        unset K1 K2 K3
+        # -s no echo of input, -N number of chars, -p prompt
+        read -s -N1 -p "Press a key:"
+        K1="$REPLY"
+        read -s -N2 -t 0.001
+        K2="$REPLY"
+        read -s -N1 -t 0.001
+        K3="$REPLY"
+        key="$K1$K2$K3"
+    done
+}

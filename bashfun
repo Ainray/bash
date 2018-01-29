@@ -1,7 +1,4 @@
-#!/bin/sh
-# .bashfun
-#
-# ====================== print my information =========================
+#!/bin/bash
 cv (){
     echo "Name  :   Ainray"
     echo "E-mail:   wwzhang0421@163.com"
@@ -43,8 +40,9 @@ pathexpandtilde ()  {
       	   local username=${1%%/*}
       	   if [ "${username}x" == "x" ] ; then # in case without "/"
       	   	 username=${1#"~"}
-      	       read -a homedir < <(getent passwd "$username")
-      	       homedir=${homedir[5]}
+      	       #read -a homedir < <(getent passwd "$username")
+      	       #homedir=${homedir[5]}
+               homedir=$(getent passwd "$username" |cut -d: -f6)
                	 echo "${homedir}"
       	   else
 			 username=${username#"~"}
@@ -198,78 +196,99 @@ pathaddmul () {
 }
 
 pathpart () {
+    syntax(){
+        echo "Synopsis:"
+        echo "  pathpart [-h]"
+        echo "  pathpart files"
+        echo "  pathpart [-n] p|b|e|s|f|be|pbe files"
+        echo "  pathpart [-n] [1-7] files"
+        echo "  pathpart [-n] [1-7] files "
+        echo "  pathpart [--realpath] (some realpath option) [-n] [1-7] files "
+        echo 
+        echo -n "  It usually expects one or more of the five parameters (pbesf) above."
+        echo -n "It departs file name into three parts: path, base name, extension. It should"
+        echo -n "noted that base name has no extension (last .*). The last .* will be automatically"
+        echo    "recognized as extension unless \"-n\" option is provided."
+        echo -n "  It can also accept a octal digit, defined very similar Unix-like file permission"
+        echo    "as follows:"
+        echo "------------------------"
+        echo "      1, path"
+        echo "      2, base name"
+        echo "      4, extension"
+        echo "------------------------"
+        echo "So, b corresponds to type 2(only base name)"
+        echo "    f                     7(1+2+4)    "
+        echo "    p                     1(only path)"  
+        echo "    s                     6(2+4)"
+        echo "    e                     4(only extension)"
+        echo "  If no parameters provided, then 7 or f is assumed, return full path of specified file(s)."
+        echo "  It expects one or more file name as last argument(s), used by realpath.It does depend /usr/bin/realpath."
+        echo ""
+        echo "Parameters:"
+        echo "  b, base name without extension."
+        echo "  f, full path, same as realpath file"
+        echo "  p, only pure path where file exists"
+        echo "  s, short name, base name+extension, same as bx combination"
+        echo "  x, only extension"
+        echo "  N, defined above, maybe 1 2 4 6 7"
+        echo 
+        echo "Option:"
+        echo -n "  -n, optional, for file has \".*\" part but not to be considered as extension."
+        echo    "      if there exists only one (.*) constructor, -n with parameter b is equal to parameter s."
+        echo "  -h, print this help"
+    }
+    syntaxless(){
+        syntax |less
+    }
+    if [ $# -eq 0 ];then syntaxless;return 0; fi
+    if [ "$1" == "-h" ];then syntaxless;return 0;fi
+    local type=7 #default full path
+    local efile=
     local file=
-    if [ $# -eq 1 ] ; then
-        file=$(realpath ${1})
-        #echo $#
-        #echo "$@"
-        echo ${file}
-    elif [ $# -eq 2 ] ; then
-        #echo $#
-        #echo "$@"
-        case "$1" in
-            '-f'|'--full')
-                file=$(realpath ${2})
-                ;;
-            '-p'|'--path')
-                file=$(realpath ${2})
-                file=${file%/*}
-                ;;
-            '-s'|'--short')
-                file=$(realpath ${2})
-                file=${file##*/}
-                ;;
-            '-x'|'--extension')
-                file=$(realpath ${2})
-                file=${file##*/}  
+    local files=
+    local noex=0 #default recognise last (.*) constructor as extension
+    local realpathop=
+    local i
+    local IFS=$'\012'
+    # pares input
+    if [ "$1" == "-realpath" ]; then realpathop=$2;shift 2;fi
+    if [ "$1" == "-n" ]; then noex=1;shift;fi
+    case "$1" in
+        'p') type=1;shift;;
+        'b') type=2;shift;;
+        'e') type=4;shift;;
+        's') type=6;shift;;
+        'f') type=7;shift;;
+        'be'|'eb') type=6;shift;;
+        'pbe'|'peb'|'bpe'|'bep'|'epb'|'ebp') type=7;shift;;
+        1|2|4|6|7) type=$1;shift;;
+    esac
+    i=0;
+    while [ $# -gt 0 ]; do
+        # invoking realpath
+        file=$(realpath ${realpathop:+$realpathop} $1)
+        shift
+        case $type in
+            1) files[$i]=${file%/*};;
+            2) file=${file##*/}
+               files[$i]=${file%.*}
+               ;;
+            4) file=${file##*/};
                 efile=${file#*.}
                 if [ "${efile}x" == "${file}x" ] ; then
-                    file=
+                    files[$i]=
                 else
-                    file=${efile}
+                    files[$i]=${efile}
                 fi
                 ;;
-            '-b'|'--base')
-                file=$(realpath ${2})
-                file=${file##*/}
-                efile=${file#*.}
-                if [ "${efile}x" != "${file}x" ] ; then
-                    file=${file%.${efile}}
-                fi
-                ;;
-            -*|--*)
-                file=$(realpath ${2})
-                ;;
-             *)
-                file=$(realpath ${1})
-                case "$2" in
-                    '-f'|'--full') ;;
-                    '-p'|'--path')
-                        file=${file%/*} ;;
-                    '-s'|'--short')
-                        file=${file##*/} ;;
-                    '-x'|'--extension')
-                        file=${file##*/}  
-                        efile=${file#*.}
-                        if [ "${efile}x" == "${file}x" ] ; then
-                            file=
-                        else
-                            file=${efile}
-                        fi
-                        ;;
-                    '-b'|'--base')
-                        file=${file##*/}
-                        efile=${file#*.}
-                        if [ "${efile}x" != "${file}x" ] ; then
-                            file=${file%.${efile}}
-                        fi
-                        ;;
-                    '');;
-                esac
+            6) files[$i]=${file##*/};;
+            7) files[$i]="$file";;
         esac
-        echo ${file}
-    fi
+        let ++i
+    done
+    echo "${files[*]}"
 }
+
 pathcat () {
     local fullpath
     if [ "${1}x" == ".x" ] ; then
@@ -297,8 +316,6 @@ pathcatne () {
     echo ${fullpath}
 }
 
-    pathappend pathadd pathaddmul pathpart pathcat pathcatne
-
 mkdircd(){
     # "$@" is expanded to "$1" "$2" ...
     # which will further suffer to double quoted-expansion
@@ -308,6 +325,133 @@ mkdircd(){
     # so cd the last path created newly
     # 
     mkdir -p "$@" && eval cd "\"\$$#\""
+}
+# from create_ap(https://github.com/oblique/create_ap)
+get_avail_fd() {
+    local x
+    for x in $(seq 1 $(ulimit -n)); do
+        # check file exits or not
+        if [[ ! -a "/proc/$BASHPID/fd/$x" ]]; then
+            echo $x
+            return
+        fi
+    done
+    echo 0
+}
+fd(){
+    ls /proc/$BASHPID/fd/
+}
+
+diffdir1(){
+    syntax(){
+        echo "Synopsis:"
+        echo "  diffdir1 [-h]"
+        echo "  diffdir1 dir1 dir2"
+        echo "  diffdir2 dir2 dir1"
+        echo "  diffdir1 dir1 dir2 [-print0]"
+        echo "  diffdir2 dir2 dir1 [-print0]"
+        echo "  diffdir1 dir1 dir1 [-print0 |xargs -0 rm]"
+        echo ""
+        echo -n "  It expects two parameters usually, which are the directories you wan to compare."
+        echo -n "This function is different from diff due to its only comparison the file list of two"
+        echo -n "directories by their name instead of there actual content. It will list files only in"
+        echo    "dir1 but not in dir2."
+        echo "  It also provide aliased usage, diffdir2 dir1 dir2 is same as diffdir1 dir2 dir1."
+        echo ""
+        echo "Options"
+        echo "  -h, optional, print this help."
+        echo "  -print0, use find to print is for special usage such as rm."
+        echo ""
+        echo "See also diffdir "
+    }
+    #parse input
+    if [ $# -eq 0 ];then syntax;return 0;fi
+    if [ "$1" == "-h" ];then syntax;return 0;fi
+    if [ $# -eq 1 -o $# -gt 3 ];then syntax;return 1;fi
+    local dir1=${1%/}
+    local dir2=${2%/}
+    local name
+    local i
+    local i1=0
+    local buf1=
+    local IFS=$'\012'
+    for i in $(ls -A ${dir1});do
+        name=$(basename "$i")
+        # cifse4f is created by system, ignore it
+        if [ ! -e "${dir2}/${name}" -a ${name} != "cifse4f" ]; then 
+            buf1[${i1}]=${name};
+            let ++i1
+        fi
+    done
+    if [ ! -z "$buf1" ];then
+        if [ ! -z "$3" ] && [ "$3" == "-print0" ];then
+            i=0
+            while [ ! -z ${buf1[$i]} ]; do 
+                find ${dir1} -name ${buf1[$i]} -print0
+                let ++i
+            done
+        else
+            echo "${buf1[*]}";
+        fi
+    fi
+}
+
+diffdir2(){
+    syntax(){
+        echo "Synopsis:"
+        echo "  diffdir2 [-h]"
+        echo "  diffdir2 dir2 dir1"
+        echo "  diffdir2 dir2 dir1 [-print0]"
+        echo ""
+        echo -n "  It is an aliased version of diffdir1, diffdir2 dir1 dir2 is same as diffdir1 dir2 dir1. "
+        echo -n "It will list files only in dir2 but not in dir1."
+        echo ""
+        echo "Options"
+        echo "  -h, optional, print this help."
+        echo ""
+        echo "See also diffdir1"
+    }
+    #parse input
+    if [ $# -eq 0 ];then syntax;return 0;fi
+    if [ "$1" == "-h" ];then syntax;return 0;fi
+    if [ $# -eq 1 -o $# -gt 3 ];then syntax;return 1;fi
+    diffdir1 "$2" "$1" "$3"
+}
+
+diffdir(){
+    syntax(){
+        echo "Synopsis:"
+        echo "  diffdir [-h]"
+        echo "  diffdir dir1 dir2"
+        echo ""
+        echo -n "  It expects two parameters usually, which are the directories you wan to compare."
+        echo -n "This function is different from diff due to its only comparison the file list of two "
+        echo "directories by their name instead of there actual content."
+        echo ""
+        echo "Options"
+        echo "  -h, optional, print this help."
+        echo
+        echo "See also diffdir1"
+    }
+    #parse input
+    if [ $# -eq 0 ];then syntax;return 0;fi
+    if [ "$1" == "-h" ];then syntax;return 0;fi
+    if [ $# -eq 1 -o $# -gt 2 ];then syntax;return 1;fi
+    local dir1=${1%/}
+    local dir2=${2%/}
+    local buf1=$(diffdir1 ${dir1} ${dir2})
+    local buf2=$(diffdir1 ${dir2} ${dir1})
+    if [ ! -z "$buf1" ];then 
+        echo only contained in ${dir1}
+        echo "----------------------------------------------------------------"
+        echo "${buf1[*]}"
+    fi
+    if [ ! -z "$buf2" ];then 
+        echo 
+        echo only contained in ${dir2}
+        echo "----------------------------------------------------------------"
+        echo "${buf2[*]}"
+    fi
 }
 
 # ==================== date functions ==================
@@ -413,7 +557,7 @@ printcolor () {
     dircolors -p |sed -n '/=/p'|sed 's/#//' |sed -n '1p'
     echo "Color codes:"
     dircolors -p |sed -n '/=/p'|sed 's/#//' |sed -n '2,$p'
-    echo "Bash sript color syntax(\003 escape next character): "
+    echo "Bash sript color syntax(\033 escape next character): "
     echo ' "\033[01;32mwhat\033[00m" will display' \
 '"'"$(echo -e "\033[01;32mwhat\033[00m")"'"'
     if [ "${1}x" == "-lx" ] ; then
@@ -723,7 +867,7 @@ Introduction:
     "arrow" test, "enhanced" test.
       Syntax: 
                    plot --test 
-                   plot --test ["term"]|["palette"]|["arrow|as|arrowstyle"] 
+                   plot --test "term"|"palette"|"arrow|as|arrowstyle"|"dash"
     
             'show':
       Simulate gnuplot show command, accept same input from gnuplot, output is STDOUT, but cannot purse subtopic in 
@@ -978,6 +1122,7 @@ __PLOTHELP__
     local fill=
     local fillpat=
     local fillpaton=0       #use default fill pattern
+    local functionstyle=
     local graphnumber=1
     local isosamples=
     local linenum=0         # in some case multiple lines in one graph
@@ -1173,6 +1318,10 @@ __PLOTHELP__
             #fsteps
             "--fsteps"|"--fstep")
                 linemode='fsteps'; shift ;;
+            "--fs"|"--functionstyle")
+                fillpaton=1; i=0
+                while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do functionstyle[$i]="$2"; i=$(($i+1));shift; done
+                shift;;
             "--fx"|"--formatx")
                 i=0;
                 while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do formatx[$i]="$2"; i=$(($i+1));shift;done;shift;;
@@ -1542,14 +1691,6 @@ __PLOTHELP__
                     terminal="${term} ${crop} ${tran} ${enhan} fontscale ${fontscale} font '${font}' size ${tsize} linewidth 1.2";
                 fi 
             fi
-            #if [ "${printtofile}x" == "2x" ]; then #black 
-                #linestyle[0]="lt -1"
-                #linestyle[1]="lt -1 pi -4 pt 6"
-                #linestyle[2]="lt -1 pi -3 pt 7 ps 2"
-                #linestyle[3]="lt -1 pi -6 pt 7"
-                #linestyle[4]="lt -1 pi -3 pt 4"
-                #linestyle[5]="lt -1 pi -5 pt 5"
-            #fi
             ;;
         *) 
             term="pngcairo";suffix=".png"; if [ -z "${terminal}" ] ; then  terminal="${term}";fi;;
@@ -1572,14 +1713,15 @@ __PLOTHELP__
     for ((i=0;i<${graphnumber};++i)) do
         # graph setting, pushed in $sslbuf
         if [ $i == 0 ] || [ "${multiploton}x" == "1x" ] ; then
+            if [ ! -z "${functionstyle[$i]}" ] ; then strpush "set style function ${functionstyle[$i]}" $graphbuf; fi
             if [ "${parametric[$i]}x" == "1x" ] ; then strpush "set parametric" $graphbuf; fi
-            if [ ! -z "${origin[$i]}" ]; then strpush "set origin ${origin[$i]}" $graphbuf;fi
-            if [ ! -z "${size[$i]}" ]; then strpush "set size ${size[$i]}" $graphbuf;fi
-            if [ ! -z "${margins[$i]}" ]; then strpush "set margins ${margins[$i]}" $graphbuf;fi
-            if [ ! -z "${angle[$i]}" ]; then strpush "set angles ${angle[$i]}" $graphbuf;fi
-            if [ ! -z "${cntr[$i]}" ]; then strpush "set contour ${cntr[$i]}" $graphbuf;fi
             if [ "${polaron[$i]}x" == "1x" ] ; then strpush "set polar" $graphbuf ; 
             elif [ "${polaron[$i]}x" == "0x" ];then strpush "unset polar" $graphbuf ;fi
+            if [ ! -z "${angle[$i]}" ]; then strpush "set angles ${angle[$i]}" $graphbuf;fi
+            if [ ! -z "${margins[$i]}" ]; then strpush "set margins ${margins[$i]}" $graphbuf;fi
+            if [ ! -z "${origin[$i]}" ]; then strpush "set origin ${origin[$i]}" $graphbuf;fi
+            if [ ! -z "${size[$i]}" ]; then strpush "set size ${size[$i]}" $graphbuf;fi
+            if [ ! -z "${cntr[$i]}" ]; then strpush "set contour ${cntr[$i]}" $graphbuf;fi
             if [ ! -z "${view[$i]}" ] ; then strpush "set view ${view[$i]}" $graphbuf;fi
             if [ ! -z "${viewxyz[$i]}" ] ; then strpush "set view ${viewxyz[$i]}" $graphbuf;fi
             if [ "${surf[$i]}x" == "0x" ];then strpush "unset surf" $graphbuf;
@@ -1775,23 +1917,39 @@ __PLOTHELP__
                     "set for [i=9:12] label sprintf('%s',word(ars,i)) at -580+(i-8)*200, (-40 - 9.5 * 8) front tc rgb word(clrs,i-8)" \
                     "unset tics;plot [-1000:1000] [-180:0] -1001 notitle";;
             "enhance"|"enhan"|"enhanced") strpushv $testbuf ";" 'save_encoding = GPVAL_ENCODING' 'set encoding utf8' \
-'set title "Demo of enhanced text mode using a single UTF-8 encoded font \nThere is another demo that shows how to use a separate Symbol font"' \
-'set xrange [-1:1]' 'set yrange [-0.5:1.1]' 'set format xy "%.1f"' \
-'set arrow from  0.5, -0.5 to  0.5, 0.0 nohead' 'set label 1 at -0.65, 0.95' \
-'set label 1 "Superscripts and subscripts:" tc lt 3' 'set label 3 at -0.55, 0.85' \
-'set label 3 "A_{j,k} 10^{-2}  x@^2_k    x@_0^{-3/2}y"' 'set label 5 at -0.55,  0.7 ' \
-'set label 5 "Space-holders:" tc lt 3' 'set label 6 at -0.45, 0.6 ' \
-'set label 6 "<&{{/=20 B}ig}> <&{x@_0^{-3/2}y}> holds space for"' \
-'set label 7 at -0.45, 0.5 ' 'set label 7 "<{{/=20 B}ig}> <{x@_0^{-3/2}y}>"' \
-'set label 8 at -0.9, -0.2' 'set label 8 "Overprint \n(v should be centred over d)" tc lt 3' \
-'set label 9 at -0.85, -0.4' 'set label 9 " ~{abcdefg}{0.8v}"' \
-'set label 10 at  -.40, 0.35' 'set label 10 "UTF-8 encoding does not require Symbol font:" tc lt 3' \
-'set label 11 at -.30, 0.2' 'set label 11 "{/*1.5 ∫@_{/=9.6 0}^{/=12 ∞}} {e^{-{μ}^2/2} d}{μ=(π/2)^{1/2}}"' \
-'set label 21 at 0.5, -.1' 'set label 21 "Left  ^{centered} ƒ(αβγδεζ)" left' \
-'set label 22 at 0.5, -.2' 'set label 22 "Right ^{centered} ƒ(αβγδεζ)" right' \
-'set label 23 at 0.5, -.3' 'set label 23 "Center^{centered} ƒ(αβγδεζ)" center' \
-'set label 30 at -.9, 0.0 "{/:Bold Bold} and {/:Italic Italic} markup"' \
-'set key title " "' 'plot sin(x)**2 lt 2 lw 2 title "sin^2(x)"' 'set encoding save_encoding' ;;
+                    'set title "Demo of enhanced text mode using a single UTF-8 encoded font \nThere is another demo that shows how to use a separate Symbol font"' \
+                    'set xrange [-1:1]' 'set yrange [-0.5:1.1]' 'set format xy "%.1f"' \
+                    'set arrow from  0.5, -0.5 to  0.5, 0.0 nohead' 'set label 1 at -0.65, 0.95' \
+                    'set label 1 "Superscripts and subscripts:" tc lt 3' 'set label 3 at -0.55, 0.85' \
+                    'set label 3 "A_{j,k} 10^{-2}  x@^2_k    x@_0^{-3/2}y"' 'set label 5 at -0.55,  0.7 ' \
+                    'set label 5 "Space-holders:" tc lt 3' 'set label 6 at -0.45, 0.6 ' \
+                    'set label 6 "<&{{/=20 B}ig}> <&{x@_0^{-3/2}y}> holds space for"' \
+                    'set label 7 at -0.45, 0.5 ' 'set label 7 "<{{/=20 B}ig}> <{x@_0^{-3/2}y}>"' \
+                    'set label 8 at -0.9, -0.2' 'set label 8 "Overprint \n(v should be centred over d)" tc lt 3' \
+                    'set label 9 at -0.85, -0.4' 'set label 9 " ~{abcdefg}{0.8v}"' \
+                    'set label 10 at  -.40, 0.35' 'set label 10 "UTF-8 encoding does not require Symbol font:" tc lt 3' \
+                    'set label 11 at -.30, 0.2' 'set label 11 "{/*1.5 ∫@_{/=9.6 0}^{/=12 ∞}} {e^{-{μ}^2/2} d}{μ=(π/2)^{1/2}}"' \
+                    'set label 21 at 0.5, -.1' 'set label 21 "Left  ^{centered} ƒ(αβγδεζ)" left' \
+                    'set label 22 at 0.5, -.2' 'set label 22 "Right ^{centered} ƒ(αβγδεζ)" right' \
+                    'set label 23 at 0.5, -.3' 'set label 23 "Center^{centered} ƒ(αβγδεζ)" center' \
+                    'set label 30 at -.9, 0.0 "{/:Bold Bold} and {/:Italic Italic} markup"' \
+                    'set key title " "' 'plot sin(x)**2 lt 2 lw 2 title "sin^2(x)"' 'set encoding save_encoding' 
+                    ;;
+                "dash")
+                    local dash1111=$(strcat 'plot cos(x) lt -1 pi -4 pt 6 title "pi -4 pt 6",' \
+                        'cos(x-.8)  lt -1 pi -3 pt 7 ps 0.2 title "pi -3 pt 7 ps 0.2",' \
+                        'cos(x-.2)  lt -1 pi -6 pt 7 title "pi -6 pt 7",' \
+                        'cos(x-.4)  lt -1 pi -3 pt 4 title "pi -3 pt 4",' \
+                        'cos(x-.6)  lt -1 pi -5 pt 5 title "pi -5 pt 5",' \
+                        'cos(x-1.)  with line lt -1 title "lt -1",' \
+                        'cos(x+.2)  with line lt -1 lw 2 title "lt -1 lw 2"')
+                    strpushv  $testbuf ";" "set style function linespoints" \
+                    'set title "The pointinterval property is another way to create interrupted lines"' \
+                    'set xlabel "This technique works best for equally spaced data points" ' \
+                    'set xrange [ -0.500000 : 3.30000 ] noreverse nowriteback' \
+                    'set yrange [ -1.00000 : 1.40000 ] noreverse nowriteback'  'set bmargin  6'  \
+                    "${dash1111}"
+                    ;;
             esac
             strpushv $buf ";" "${!prebuf}" "${!testbuf}" "${!postbuf}"
             cmd='gnuplot <(echo "${!buf}"); ${open} ${outfile} &> /dev/null';;
@@ -2077,6 +2235,76 @@ d2o(){
         echo "obase=8;${i}" |bc
     done
 }
+
+########################################################################
+#                                                                      #
+# author:        Ainray                                                #
+#                                                                      #
+# email:         wwzhang0421@163.com                                   #
+#                                                                      #
+# function:      random                                                #
+#                                                                      #
+# created:       2017-12-25 20:39:27                                   #
+#                                                                      #
+# modified:      2017-12-25 23:33:51                                   #
+#                                                                      #
+# introduction:  Random function.                                      #
+#                                                                      #
+# license:       Public license.                                       #
+#                                                                      #
+########################################################################
+random(){
+   syntax() {
+   # Function embedded within function.
+      echo    "Syntax:"
+      echo    "      random [-h] [min] [max] [div] [n]"
+      echo 
+      echo    "Parameters:"
+      echo    "    min, is the minimum value, default is 0"
+      echo    "    max, is the maximum value, default is 32767"
+      echo    "    div, specifies that the answer must be a multiple of this value(div), default is 1." 
+      echo    "    n, size of return array, default is 1."
+      
+      echo 
+      echo    "    It expects up to 4 passed parameters, but all are completely optional. If any value is missing, defaults are "
+      echo    "supplied as:0 32767 1 1. The return value answer must be evenly divisible by this number(div). In addition, min and "
+      echo    "max is also be modified automatically to a multibple of div. Successful completion returns 0, unsuccessful"
+      echo    "completion returns usage syntax and 1. The return value is stored in the global variable with same as the function"
+      echo    "random. The answer is also displayed into the STDOUT."
+      echo    
+      echo    "Options:"
+      echo    "    -h, print this help"
+   }
+    # check input parameters
+    OPTIND=1
+    if [ "$1" == "-h" ];then syntax;shift;return 0;fi
+    local min=${1:-0}
+    local max=${2:-32767}
+    local div=${3:-1}
+    local n=${4:-1}
+    local range
+    local tmp
+    local i
+    local result
+    if [ $# -gt 4 -o ${div} -eq 0 -o ${min} -eq ${max} -o ${n} -lt 1 ]; then syntax;return 1;fi
+
+    # div must be positive
+    [ ${div} -lt 0 ] && div=$((0-div))
+    
+    #swap min and max if necessary
+    if [ ${min} -gt ${max} ];then tmp=${min};min=${max};max=${tmp};fi
+    # fix min and max with multiple of div if necessary
+    if [ $((min/div*div)) -ne ${min} ]; then  min=$((min/div*div));fi
+    if [ $((max/div*div)) -ne ${max} ]; then  max=$((max/div*div));fi
+
+    let "range=((max-min+1+div))"
+    for((i=0;i<$n;++i)) do
+        let "result[$i]=(((RANDOM%range)/div*div+min))"
+    done
+    echo ${result[@]}
+    return 0
+}
+
 zeropad(){
     local n=${1}
     local pre=${2}
@@ -2106,6 +2334,10 @@ strpt(){
     echo $'\x27'$@$'\x27'
 }
 
+strquote(){
+    local IFS=$'\x1B'
+    echo \"$@\"
+}
 
 strpush(){
     # add a string into the specified stack
@@ -2130,6 +2362,7 @@ strpushv(){
     while [[ $# -gt 0 ]]; do
         # modified on 20171219, when number of parameter >10
         # for loop failed if no "shift" is used.
+        # 20171223, this is due to ${10} ‡ $10 
         #for((i=1;i<= $#;++i)) do 
         # debug
         #echo strpush "\"$(echo "\$$i")\"" ${STRVAR} $FS;
@@ -2158,6 +2391,29 @@ strsplit(){
         remainder="${remainder#*;}"
         i=$(($i+1))
     done
+}
+
+strrepeat(){
+#for repeat a string, special for those without IFS in it
+    local n=$1
+    local str="$2"
+    local output
+    local i
+    for((i=0;i<n;++i)) do
+        output="${output}$2"
+    done
+    echo "${output}"
+}
+zeros(){
+    local n=${1:-10}
+    local i
+    if [ $# -lt 2 ];then strrepeat $n 0;
+    elif [ $# -ge 2 ]; then
+       matbasename="${3:-MAT}"
+       for((i=0;i<=$2;++i)) do
+           eval "${3:-MAT}$i=\$(zeros $n);"
+       done
+   fi
 }
 
 #----bashself
@@ -2190,22 +2446,133 @@ _HELP
     fi
     # test parameter expansion
     echo "parameter expansion:"
-    echo '$*'= $*
+    echo '  $*'= $*
     IFS=";" && echo "IFS=;\$*"="$*"
-    echo '$@'=$@
+    echo '  $@'=$@
     IFS=";" && echo "IFS=;\$@"="$@"
     # test array expansion
     echo "array expansion:"
-    x=1;x[1]=2;x[2]=3;
-    echo '${x[@]}='${x[@]}
-    echo '"${x[@]}"='"${x[@]}"
-    IFS=";" && echo 'IFS=;${x[@]}='${x[@]}
-    IFS=";" && echo 'IFS=;"${x[@]}"='"${x[@]}"
-    echo '"${x[*]}"='"${x[*]}"
-    echo '${x[*]}='${x[*]}
-    IFS=";" && echo 'IFS=;${x[*]}='${x[*]}
-    IFS=";" && echo 'IFS=;"${x[*]}"='"${x[*]}"
     IFS=$OFS
+    x=1;x[1]=2;x[2]=3;
+    echo '  ${x[@]}='${x[@]}
+    echo '  "${x[@]}"='"${x[@]}"
+    IFS=";" && echo '   IFS=;${x[@]}='${x[@]}
+    IFS=";" && echo '   IFS=;"${x[@]}"='"${x[@]}"
+    echo '  "${x[*]}"='"${x[*]}"
+    echo '  ${x[*]}='${x[*]}
+    IFS=";" && echo '   IFS=;${x[*]}='${x[*]}
+    IFS=";" && echo '   IFS=;"${x[*]}"='"${x[*]}"
+    # test 0
+    echo "test: "
+    if [ 0 ]; then echo "   \"\$? of if [ 0 ]=\"$?(true)"
+    else echo " \"\$? if [ 0 ]=\"$?(false)"
+    fi
+    if [ 1 ]; then echo "   \"\$? if [ 1 ]=\"$?(true)"
+    else echo " \"\$? if [ 1 ]=\"$?(false)"
+    fi
+    if [ -1 ]; then echo "    \"\$? if [ -1 ]=\"$?(true)"
+    else echo "    \"\$? if [ -1 ]=\"$?(false)"
+    fi
+    if [ ]; then echo "    \"\$? if [ ]=\"$?(true)"
+    else echo "    \"\$? if [ ]=\"$?(false)"
+    fi
+    if [ "    " ]; then echo "\"\$? if [ \"\" ]=\"$?(true)"
+    else echo "    \"\$? if [ \"\" ]=\"$?(false)"
+    fi
+    echo -n "    "
+    type test
+    echo -n "    "
+    type '['
+    echo -n "    "
+    type '[['
+    echo -n "    "
+    type ']]'
+    echo -n "    "
+    type ']'
+    echo "  \"\$? test ']'\"=$?(false)"
+    # test [[]], octal and hexadecimals are evlauated automatically
+    decimal=15
+    octal=017
+    hex=0x0f
+    echo  test "[[]]", octal and hexadecimals are evlauated automatically
+    if [ "$decimal" -eq "$octal" ]; then
+        echo "    \"\$? of [ \"$decimal\" -eq \"$octal\" ]\"=$?";
+    else
+        echo "    \"\$? of [ \"$decimal\" -eq \"$octal\" ]\"=$?";
+    fi
+    if [ $decimal -eq $octal ]; then
+        echo "    \"\$? of [ $decimal -eq $octal ]\"=$?";
+    else
+        echo "    \"\$? of [ $decimal -eq $octal ]\"=$?";
+    fi
+    if [[ "$decimal" -eq "$octal" ]]; then
+        echo "    \"\$? of [[ \"$decimal\" -eq \"$octal\" ]]\"=$?";
+    else
+        echo "    \"\$? of [[ \"$decimal\" -eq \"$octal\" ]]\"=$?";
+    fi
+    if [[ $decimal -eq $octal ]]; then
+        echo "    \"\$? of [[ $decimal -eq $octal ]]\"=$?";
+    else
+        echo "    \"\$? of [[ $decimal -eq $octal ]]\"=$?";
+    fi
+    if [[ "$decimal" -eq "$hex" ]]; then
+        echo "    \"\$? of [[ \"$decimal\" -eq \"$hex\" ]]\"=$?";
+    else
+        echo "    \"\$? of [[ \"$decimal\" -eq \"$hex\" ]]\"=$?";
+    fi
+    if [[ $decimal -eq $hex ]]; then
+        echo "    \"\$? of [[ $decimal -eq $hex ]]\"=$?";
+    else
+        echo "    \"\$? of [[ $decimal -eq $hex ]]\"=$?";
+    fi
+    echo  test "(())" 
+    ((0)); echo "    \"\$? of ((0))\"=$?"
+    ((1)); echo "    \"\$? of ((1))\"=$?"
+    ((5>4)); echo "    \"\$? of ((5>4))\"=$?"
+    ((5>9)); echo "    \"\$? of ((5>9))\"=$?"
+    ((5==5)); echo "    \"\$? of ((5==5))\"=$?"
+    ((5-5)); echo "    \"\$? of ((5-5))\"=$?"
+    ((5/4)); echo "    \"\$? of ((5/4))\"=$?"
+    ((5/6)); echo "    \"\$? of ((5/6))\"=$?"
+    ((1/0)) 2>/dev/null; echo "    \"\$? of ((1/0))\"=$?"
+    # bash builtin variable
+    echo  bash builtin variable
+    echo "   "\$BASH=$BASH
+    echo "   "\$BASHPID=$BASHPID
+    echo "   "\$BASH_SUBSHELL=$BASH_SUBSHELL
+    echo "   "\$BASH_SUBSHELL=$BASH_SUBSHELL
+    echo "   "\$BASH_VERSION=$BASH_VERSION
+    echo "   "\$BASH_VERSINFO=${BASH_VERSINFO[@]}
+    echo "   "\$EIDTOR=$EDITOR
+    echo "   "\$EUID=$EUID
+    echo "   "\$GLOBIGNORE=$GLOB_IGNORE
+    echo "   "\$GROUPS=$GROUPS
+    echo "   "\$HOSTNAME=$HOSTNAME
+    echo "   "\$HOSTTYPE=$HOSTTYPE
+    echo "   "\$IGNOREOF=$IGNOREOF
+    echo "   "\$IGNOREEOF=$IGNOREEOF
+    echo "   "\$LC_COLLATE=$LC_COLLATE
+    echo "   "\$LC_CTYPE=$LC_CTYPE
+    echo "   "\$LINENO=$LINENO
+    echo "   "\$MACHTYPE=$MACHTYPE
+    echo "   "\$OSTYPE=$OSTYPE
+    echo "   "\$PIPESTATUS=$PIPESTATUS
+    echo "   "\$PPID=$PPID
+    echo "   "\$PROMPT_COMMAD=$PROMPT_COMMAND
+    echo "   "\$PS1=$PS1
+    echo "   "\$PS2=$PS2
+    echo "   "\$PS3=$PS3
+    echo "   "\$PS4=$PS4
+    echo "   "\$REPLY=$REPLY
+    echo "   "\$SHELLOPS=$SHELLOPS
+    echo "   "\$SHLVL=$SHLVL
+    echo "   "\$TIOUT=$TIOUT
+    echo "   "\$UID=$UID
+    echo "   "\$-=$-
+    echo "   "\$!=$!
+    echo "   "\$_=$_
+    echo "   "\$\$=$$
+    
 }
 ifsecho(){
     echo -n "$IFS"|cat -te
@@ -2213,8 +2580,237 @@ ifsecho(){
 ifsreset(){
     IFS=$' \t\n'
 }
+#----bash hardware device
+bluetoothp10(){
+    syntax(){
+        echo "Syntax:"
+    }
+    # get by hcitool scan
+    local addr="C4:86:E9:3D:8C:4D"
+    local name="HUAWEI P10"
+    # get by hciconfig |sed -n 2p|cut -d  -f3
+    local laddr="9C:B6:D0:04:12:20"
+    case "$1" in 
+        "-a") echo "${addr}";;
+        "-l") echo "${laddr}";;
+        "-n") echo "${name}";;
+        "-s") echo $(hcitool scan);;
+    esac
+}
+ctty(){
+    # check current tty when you in pty
+    # in some case, you maybe do not want to know current connected terminal device
+    # instead you want to know current process is derived from which tty. This gives
+    # what you want.
+    local ppid=
+    local ptty=
+    # inital current process
+    local pid=$$
+    local counter=0
+    while :; do
+        ppid=$(ps -p ${pid} -o ppid h)
+        # find tty of parent process
+        ppty=$(ps -p ${ppid} -o tty h)
+        echo ${ppty} | grep "tty" 2>&1 >/dev/null && echo ${ppty} && return 0
+        # if not find, continue upward
+        pid=${ppid} 
+        let ++counter
+        [ ${counter} -ge 10 ] && return 1
+    done
+}
 
+lightlocker(){
+    syntax(){
+        echo "Syntax:"
+        echo "      lightlocker [-k] [-h]"
+        echo 
+        echo " It accept a two optional options. To kill light-locker, which make X desktop black."
+        echo "When no option is provided, It print light-locker pid to check."
+        echo ""
+        echo "Options:"
+        echo "  -h, print this help"
+        echo "  -k, kill light-locker"
+    }
+    if [ $# -gt 1 ]; then syntax;return 1;fi
+    if [ "$1" == "-h" ]; then syntax;return 0;fi
+    if [ "${1}x" == "x" ]; then ps -u inray|grep "light-locker"
+    elif [ "${1}" == "-k" ];then pidof light-locker|xargs kill -9
+    fi
+}
+#----bash pcitures
+eps2png(){
+    syntax(){
+        echo "Syntax:"
+        echo "      eps2png [-h] ifile ofile [600]"
+        echo 
+        echo "  Using gs to convert eps file to png file. It expects three input parameters, "
+        echo "first is necessary, other two are optional."
+        echo 
+        echo "Paramters:"
+        echo "  ifile, input eps file name"
+        echo "  ofile, optional, output png file name, if not specified, it will be same as input file."
+        echo "  res,   resolution(dpi), default is 600"
+        echo 
+        echo "Options:"
+        echo "  -h, print this help"
+    }
+    if [ ! -x /usr/bin/gs ]; then echo "gs cannot be run.";return 1;fi
+    if [ $# -gt 3 -o $# -lt 1 ]; then syntax;return 1;fi
+    if [ "$1" = "-h" ]; then syntax;return 0;fi
+    local ifile="${1%.eps}.eps"
+    local ofile="${2:-${1%.eps}}"
+    local res=${3:-600}
+    ofile="${ofile%.png}.png"
+    if [ ! -f "${ifile}" ]; then echo "File $ifile doesnot exist."; return 1;fi
+    if [ -f "${ofile}" ]; then echo "File $ofile exists. Please give a new name.";return 1; fi
+    gs -o -q -sDEVICE=png256 -dEPSCrop -r${res} -o${ofile} ${ifile} >/dev/null
+}
+pdf2png(){
+    syntax(){
+        echo "Syntax:"
+        echo "      pdf2png [-h] ifile ofile [600]"
+        echo 
+        echo "  Using gs to convert pdf file to png file. It expects three input parameters, "
+        echo "first is necessary, other two are optional."
+        echo 
+        echo "Paramters:"
+        echo "  ifile, input pdf file name"
+        echo "  ofile, optional, output png file name, if not specified, it will be same as input file."
+        echo "  res,   resolution(dpi), default is 600"
+        echo 
+        echo "Options:"
+        echo "  -h, print this help"
+    }
+    if [ ! -x /usr/bin/gs ]; then echo "gs cannot be run.";return 1;fi
+    if [ $# -gt 3 -o $# -lt 1 ]; then syntax;return 1;fi
+    if [ "$1" = "-h" ]; then syntax;return 0;fi
+    local ifile="${1%.pdf}.pdf"
+    local ofile="${2:-${1%.pdf}}"
+    local res=${3:-600}
+    ofile="${ofile%.png}.png"
+    if [ ! -f "${ifile}" ]; then echo "File $ifile doesnot exist."; return 1;fi
+    if [ -f "${ofile}" ]; then echo "File $ofile exists. Please give a new name.";return 1; fi
+    gs -o -q -sDEVICE=png256 -dPDFCrop -r${res} -o${ofile} ${ifile} >/dev/null
+}
 #----bash misc
+abbr(){
+    syntax(){
+        echo "Syntax: "
+        echo "       abbr [-ehps]"
+        echo ""
+        echo "Options: "
+        echo "  -e, edit the abbreviation database file"
+        echo "  -h, print this help"
+        echo "  -p, print the abbreviations in formatted form, every field maybe truncated when beyong a length limit."
+        echo "  -s, print the abbrivation database file source text."
+        echo ""
+        echo "Introduction:"
+        echo "  If no options is given, just print the abbreviations in formated form, same with -p opion."
+    }
+    local printtype=0
+    local ishelp=0
+    local abbrpath="${HOME}/.note/abbr"
+    local opt
+    printformat(){
+        echo ------------------------------------------------------------------------------------------------------------------------
+        echo "abbrivation      full                                     definition"
+        echo ------------------------------------------------------------------------------------------------------------------------
+        sed -n '/^\s*#/!p'  ${abbrpath} |\
+            awk -F ";" -v COL=${COLUMNS} '{$1=substr($1,1,15);$2=substr($2,1,40);$3=substr($3,1,COL-57);printf "%-15s %-40s %s\n",$1,$2,$3}'
+    }
+    printsource(){
+        sed -n '/^\s*#/!p'  ${abbrpath}
+    }
+    while :; do
+        case "$1" in
+            "-e") vim ${abbrpath};shift;;
+            "-h") ishelp=1;shift;;
+            "-p") printtype=1;shift;;
+            "-s") printtype=2;shift;;
+            "")printtype=1;shift;;
+            *) syntax;return 1;;
+        esac
+        [ $# -ge 0 ] && break
+    done
+    if [ "${ishelp}x"  == "1x" ]; then syntax; return 0; fi
+    case "$printtype" in
+        1) printformat;;
+        2) printsource;;
+    esac
+}
+
+alglist(){
+cat <<_ALGLIST
+                                    Good Book List
+    --------------------------------------------------------------------------------------
+        Description                                 Note
+    --------------------------------------------------------------------------------------
+        Euclidean algorithm                         Greatest common  divisor
+    --------------------------------------------------------------------------------------
+_ALGLIST
+
+}
+
+booklist(){
+cat <<_BOOKLIST
+                                    Good Book List
+    --------------------------------------------------------------------------------------
+        Book Name                                                           Note
+    --------------------------------------------------------------------------------------
+       Nabighian - 1987 - Electromagnetic methods in applied geophysics-theory.pdf
+       Smith - 1997 - The Scientist and Engineeer's Guide to Digital Signal Processing.pdf
+    --------------------------------------------------------------------------------------
+_BOOKLIST
+}
+ctrlkey(){
+    echo "                                  Generl useful ascii codes                                    "
+    echo "---------------------------------------------------------------------------------------------------------"
+    echo "Name      Decimal     Octal       Hex     C-escape        Ctrl-key        Description"
+    echo "---------------------------------------------------------------------------------------------------------"
+    echo "BEL       7           007         0x07    \a              ^G              Terminal bell"
+    echo "BS        8           010         0x08    \b              ^H              Backspace"
+    echo "HT        9           011         0x09    \t              ^I              Horizontal TAB"
+    echo "LF        10          012         0x0A    \n              ^J              Linefeed"
+    echo "VT        11          013         0x0B    \v              ^K              Verical TAB"
+    echo "FF        12          014         0x0C    \f              ^L              Formfeed(New page)"
+    echo "CR        13          015         0x0D    \r              ^M              Carriage return"
+    echo "SO        14          016         0x0E                    ^N              G1 character set"
+    echo "SI        15          017         0x0F                    ^O              G0 character set"
+    echo "CAN       24          030         0x18                    ^X              interrupt escape sequences"
+    echo "SUB       26          032         0x1A                    ^Z              interrupt escape sequences"
+    echo "Esc       27          033         0x1B    <none>          ^[              Escape character"
+    echo "DEL       127         177         0x7F    <none>          <none>          Delete character"
+    echo "CSI                               0x9B                                    Esc ["
+    echo "---------------------------------------------------------------------------------------------------------"
+    echo "Note: man console-codes"
+}
+phyconst(){
+cat <<_PHYCONST
+                            Constants in physics
+    --------------------------------------------------------------------------------------
+          value          unit(IS)                    phyical paramter        
+    --------------------------------------------------------------------------------------
+        8.854E-12         F/m                dielectric permittivity of free-space
+        4*piE-7           H/m                magnetic permeability of free-space           
+    --------------------------------------------------------------------------------------
+_PHYCONST
+}
+
+problist(){
+cat <<_PROBLIST
+                                 PROBLEM LIST
+    --------------------------------------------------------------------------------------
+               Problem Name                                       Note
+    --------------------------------------------------------------------------------------
+        [1]  Gibb's phenomenon
+        [2]  echo literally  some with many mixed quotes
+        [3]  vim fortran autocompletation
+        [4]  why cultral noise only has odd harmonics
+        [5]  Fourier integral obtained by numerical calculation
+        [6]  Add function keyboard, refer to http://rick.vanrein.org/linux/funkey/
+    --------------------------------------------------------------------------------------
+_PROBLIST
+}
 wordfontsize(){
 cat <<_FONTSIZE
                   Word Font Size
@@ -2240,43 +2836,4 @@ cat <<_FONTSIZE
     -------------------------------------------
     NOTE: 1s mean small No. 1, and so on.
 _FONTSIZE
-}
-
-phyconst(){
-cat <<_PHYCONST
-                            Constants in physics
-    --------------------------------------------------------------------------------------
-          value          unit(IS)                    phyical paramter        
-    --------------------------------------------------------------------------------------
-        8.854E-12         F/m                dielectric permittivity of free-space
-        4*piE-7           H/m                magnetic permeability of free-space           
-    --------------------------------------------------------------------------------------
-_PHYCONST
-}
-
-booklist(){
-cat <<_BOOKLIST
-                                    Good Book List
-    --------------------------------------------------------------------------------------
-        Book Name                                                           Note
-    --------------------------------------------------------------------------------------
-       Nabighian - 1987 - Electromagnetic methods in applied geophysics-theory.pdf
-       Smith - 1997 - The Scientist and Engineeer's Guide to Digital Signal Processing.pdf
-    --------------------------------------------------------------------------------------
-_BOOKLIST
-}
-
-problist(){
-cat <<_PROBLIST
-                                 PROBLEM LIST
-    --------------------------------------------------------------------------------------
-               Problem Name                                       Note
-    --------------------------------------------------------------------------------------
-        [1]  Gibb's phenomenon
-        [2]  echo literally  some with many mixed quotes
-        [3]  vim fortran autocompletation
-        [4]  why cultral noise only has odd harmonics
-        [5]  Fourier integral obtained by numerical calculation
-    --------------------------------------------------------------------------------------
-_PROBLIST
 }
