@@ -1,0 +1,55 @@
+#!/bin/bash
+# check input argument is a valid date or not
+# now only support YYYYMMDD format, for example, 201708105
+VERSION="0-1"
+PROGNAME="$(basename $0)"
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME} date <YYYYMMDD>     Check <YYYYMMDD> is valid date."
+    echo "  ${PROGNAME} year leap <YYYY>    Check <YYYY> is a leap year."
+}
+leap(){
+    #check whether a year is a leap or not
+    local pat='[0-9][0-9][0-9][0-9]'
+    [ $# -gt 1 ]  && return 1
+    [ $# -eq 0 ]  && return 1
+    [[ ! "${1}" =~ ${pat} ]] && return 1
+    [ $((10#${1}%4)) -eq 0 -a $((10#${1}%100)) -ne -0 ] && return  0
+    [ $((10#${1}%400)) -eq 0 ] && return 0
+    return 1
+}
+validdate () {
+    local year=
+    local month=
+    local day=
+    local dpm=30  # number of days per month
+    local pat='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+    [ $# -gt 1 ]  && return 1
+    [ $# -eq 0 ]  && return 1
+    [[ ! "${1}" =~ ${pat} ]] && return 1
+    year=${1:0:4};month=${1:4:2};day=${1:6:2}
+    # check month
+    [ $((10#${month})) -lt 1 ] && return 1
+    [ $((10#${month})) -gt 12 ] && return 1
+    # correct dpm
+    case "${month}" in
+        "01"|"03"|"05"|"07"|"08"|"10"|"12") echo 1;dpm=31;;
+        "02") dpm=28;leap "${year}" && dpm=29;;
+    esac
+    [ $((10#${day})) -lt 1 -o $((10#${day})) -gt $((10#${dpm})) ] && return 1 
+    return 0
+}
+# parese input
+case "$1" in
+    date|day|d)
+        shift ; validdate "$1" ; exit $?
+        ;;
+    year|y)
+        shift
+        case "$1" in
+            leap) shift; leap "$1" ; exit $?;;
+        esac
+        ;;
+    *)
+        usage
+esac

@@ -1,0 +1,265 @@
+#!/bin/bash
+# author: ainray
+# Back of configuration files using rsync
+# date: Mon Jan 29 22:51:18 CST 2018
+VERSION="3-1"
+PROGNAME=$(basename "$0")
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME} b                           backup"
+    echo "  ${PROGNAME} c  [20180130]               backup and change backup path"
+    echo "  ${PROGNAME} u  [20180130]               backup and create tar archive of older backups"
+    echo "  ${PROGNAME} r  file [keys]              list specified files if they exist"
+    echo "  [sudo] ${PROGNAME} [p <path>] r  --run file [keys]"
+    echo "                                          restore specified files if they exist"
+    echo "  sudo ${PROGNAME} p <path>  [...]             specify the backup prefix, to run previous commands"
+    echo "  sudo ${PROGNAME} install                install" 
+    echo "  sudo ${PROGNAME} unstall                uninstall"
+    echo "  ${PROGNAME} m                           backup window and Linux"
+    echo "  ${PROGNAME} [h]                         print this help"
+    echo "  ${PROGNAME} comp                        generate bash completion _${PROGNAME}" 
+    echo ""
+    echo "Options:"
+    echo 
+    echo "  [ [p <path> --run ] ] file [keys] "
+    echo "          PATH specify absolute backup path, in some case, you are a administrator and backup"
+    echo "      some files (e.g., configuration files in /etc). When you want to restore it, you need run"
+    echo "      this command as root, in which case, the ${HOME} variable will be root, thus your backup"
+    echo "      path will be changed into /root, which is not you want. You can use this parameter (e.g. "
+    echo "      /home/inray/.back/) to specify the backup path prefix as a absolute path."
+    echo ""
+    echo "          If [ p <path ] exits, must be at FIRST. For example,"
+    echo ""
+    echo "                  sudo backup p /home/inray r --run interfaces etc network"
+    echo 
+    echo 
+    echo "          KEYS to specify keys word to obtain unique file you want to restore, just invoking "
+    echo "      grep (using BRE)."  
+    echo 
+    echo "Install manually"
+    echo 
+    echo "      sudo install -Dm755 ${PROGNAME} /usr/local/sbin/${PROGNAME}"
+    echo "      sudo install -Dm755 _${PROGNAME}  /usr/share/bash-completion/completions/${PROGNAME}"
+    echo 
+    echo "Uninstall:"
+    echo 
+    echo "      sudo rm /usr/local/sbin/${PROGNAME}"
+    echo "      sudo rm /usr/share/bash-completion/completions/${PROGNAME}"
+    echo 
+}
+PREFIX=${HOME}
+case "${1}" in 
+    p|path|-p|--path)
+        PREFIX="${2%/}";
+        shift 2
+        ;;
+    install|--install|uninstall|--uninstall)
+        ;;
+    *)
+        [ $(id -u) -eq 0 ] && echo "Please specify the absolute backup path." && exit 1
+        ;;
+esac
+BACKPREFIX="${PREFIX}/.back"
+FILTER="${PREFIX}/.rsync-filter"
+LOGFILE="${BACKPREFIX}/bak.log"
+LINUXTARPATH="${PREFIX}/.linuxbak"
+BACKSUFFIX=".bak"
+backdir=
+updatedir=
+today=
+runrestore=0
+
+mk_fs(){
+    today=$(date +%Y%m%d)
+    [ ! -d ${BACKPREFIX} ] && mkdir -p ${BACKPREFIX} && return 0
+    backdir=$(ls -A ${BACKPREFIX} | grep "[[:digit:]]\{8\}${BACKSUFFIX}") 
+    #find ${BACKPREFIX} -maxdepth 1 -mindepth 1 -type d
+    #backdir=$(find ${BACKPREFIX} -maxdepth 1 -mindepth 1 -type d |xargs basename)
+    [ -z "${backdir}" ] && backdir="${today}${BACKSUFFIX}"
+    backdir="${BACKPREFIX}/${backdir}"
+}
+
+header(){
+    local hc="$(date -R): back"
+    echo  "=================${hc}================="
+    echo  "Back following files into ${backdir}"
+    echo  "Version: ${PROGNAME}_${VERSION}"
+    echo  "Writing this log file: ${LOGFILE}"
+    echo 
+}
+tailer(){
+    echo "========================================================================"
+    echo 
+    echo 
+}
+backup_linux(){
+    # synchronize important Linux files and directories
+    rsync -avR --delete --delete-excluded --filter="merge ${FILTER}"  \
+      /home/inray /etc ${backdir}
+}
+
+update_linux(){
+    # synchronization followed by change name
+    rsync -avR --delete --delete-excluded --filter="merge ${FILTER}"  \
+       /home/inray/ /etc ${backdir}
+    [ "${backdir}" == "${updatedir}" ] && return 0
+    mv ${backdir} ${updatedir}
+    echo 
+    echo "mv ${backdir} ${updatedir}"
+}
+tar_linux(){
+    #
+    # create tar ball
+    #
+        echo ""
+        echo "Create tar archive ${backdir}.tar.gz"
+        echo "tar -C ${BACKPREFIX} -zcf  ${backdir}.tar.gz ${backdir##*/}"
+        tar -C ${BACKPREFIX} -zcf  ${backdir}.tar.gz ${backdir##*/}
+        echo "mv ${backdir}.tar.gz ${LINUXTARPATH}"
+        mv ${backdir}.tar.gz ${LINUXTARPATH}
+}
+
+backup_linux_win(){
+    # backup important files
+    #-------------------------- Windows---------------
+    # g:/Prj/03-refs <---> winsda5/Prj/03-refs
+    #
+        rsync -av /mnt/wing/Prj/03-refs/ ${PREFIX}/winsda5/Prj/03-refs/
+        #rsync -av --delete ${PREFIX}/winsda5/Prj/03-refs/ /mnt/wing/Prj/03-refs/
+    #
+    #-------------------------- Linux ---------------
+    # ~/Document/ ---> /mnt/wing/Linux
+    #
+        rsync -av ${PREFIX}/Documents/ /mnt/wing/Linux/
+        #rsync -av --delete /mnt/wing/Linux/ ${PREFIX}/Documents/ 
+}
+restore_header(){
+    local hc="$(date -R): restore"
+    echo  "=================${hc}================="
+    echo  "Restore following files from ${backdir}"
+    echo  "Version: ${PROGNAME}_${VERSION}"
+    echo  "Writing this log file: ${LOGFILE}"
+    echo 
+}
+
+restore_list(){
+        local file="${1}"
+        local pat=
+        shift 
+        pat=$(echo $*) 
+        src=$(find ${backdir} -iname "*${file}*" 2>/dev/null|grep ".*${pat// /.*}.*")
+        [ -z "${src}" ] && echo "Can't find file ${file} in ${backdir}." && return 1
+        echo "${src}"
+}
+restore_run(){
+    local src=$(restore_list "$@")
+    local pat=etc
+    src="${src#${backdir}}"
+    [[ "${src}" =~ etc ]] && [ $(id -u) -ne 0 ] &&
+        echo "Please run as root to restore ${src}." >&2 && return 1
+    install -v -Dm644 ${backdir}${src} ${src} 2>/dev/null || return 1
+    echo "install -Dm644 ${backdir}${src} ${src}"
+}
+back_comp(){
+    echo '#!/bin/bash'
+    echo "_${PROGNAME}(){"
+    echo '    local cur prev opts'
+    echo '    local usr=$(ls /home/ | grep -v "lost")'
+    echo '    COMPREPLY=()'
+    echo '    cur=${COMP_WORDS[COMP_CWORD]}'
+    echo '    prev=${COMP_WORDS[$((COMP_CWORD-1))]}'
+    echo '    case "$prev" in'
+    echo "        ${PROGNAME})"
+    echo '            opts="b c r u p comp install uninstall"'
+    echo '            ;;'
+    echo '        "r")'
+    echo '            opts="--run"'
+    echo '          ;;'
+    echo '        "p")'
+    echo '            opts=($(ls /home/ | grep -v "lost"))'
+    echo '          ;;'
+    echo '        ${usr})'
+    echo '            opts="b c r u"'
+    echo '          ;;'
+    echo '    esac'
+    echo '    COMPREPLY=( $(compgen -W "${opts}" -- $cur) )'
+    echo '}'
+    echo "complete -F _${PROGNAME} ${PROGNAME}"
+}
+back_comp_gene(){
+    local compfile="_${PROGNAME}"
+    back_comp > ${compfile}
+}
+
+#
+# parse input parameter 
+#
+case "${1}" in
+    b|-b)
+        #
+        # only backup
+        #
+            mk_fs
+            header |tee -a ${LOGFILE}
+            backup_linux |tee -a ${LOGFILE}
+            tailer >> ${LOGFILE}
+        ;;
+    c|-c)
+        #
+        # change backup directory name
+        #
+            mk_fs
+            updatedir="${BACKPREFIX}/${today}${BACKSUFFIX}"
+            [ -n "${2}" ] &&  ymd day "${2}"  &&  updatedir="${BACKPREFIX}/${2}${BACKSUFFIX}"
+            header |tee -a ${LOGFILE}
+            update_linux |tee -a ${LOGFILE}
+            tailer >> ${LOGFILE}
+        ;;
+    r|-r)
+        shift
+        mk_fs
+        [ "$1" == "--run" ] && runrestore=1 && shift
+        if [ "${runrestore}x" == "1x" ]; then
+            restore_header >> ${LOGFILE}
+            restore_run  "$@" | tee -a ${LOGFILE}
+            tailer >> ${LOGFILE}
+        else
+            restore_list "$@"
+        fi
+        ;;
+    u|-u)
+        #
+        # update directory
+        #
+            mk_fs
+            updatedir="${BACKPREFIX}/${today}${BACKSUFFIX}"
+            [ -n "${2}" ] &&  ymd day "${2}"  &&  updatedir="${BACKPREFIX}/${2}${BACKSUFFIX}"
+        #
+        # back, create tar ball before backup
+        #
+            header |tee -a ${LOGFILE}
+            tar_linux |tee -a ${LOGFILE}
+            update_linux |tee -a ${LOGFILE}
+            tailer >> ${LOGFILE}
+        ;; 
+    --comp|comp)
+        echo "Create bash completion file: _${PROGNAME}"
+        back_comp_gene
+        ;;
+    --install|install)
+        [ $(id -u) -ne 0 ] && echo "Please run as root." && exit 1
+        back_comp_gene
+        echo "Create bash completion file: _${PROGNAME}"
+        install -v -Dm755 ${PROGNAME} /usr/local/sbin/${PROGNAME}
+        install -v -Dm644 _${PROGNAME}  /usr/share/bash-completion/completions/${PROGNAME}
+        rm -v "_${PROGNAME}"
+        ;;
+    --uninstall|uninstall)
+        [ $(id -u) -ne 0 ] && echo "Please run as root." && exit 1
+        rm -v /usr/local/sbin/${PROGNAME}
+        rm -v /usr/share/bash-completion/completions/${PROGNAME}
+        ;;
+    *) 
+        usage |less
+        ;;
+        esac  

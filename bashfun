@@ -464,77 +464,7 @@ diffdir(){
 #
 # date functions
 #
-leap () {
-    year=${1}
-    state=0 # not leap
-    if [ $# -eq 1 ] && [ "${year}x"!="x" ] ; then
-        if [ $((10#${year}%4)) -eq 0 ]  \
-            &&  [ $((10#${year}%100)) -ne 0 ] ; then
-            state=1
-        fi
-        if [ $((10#${year}%400)) -eq 0 ] ; then
-            state=1
-        fi
-    fi
-    echo ${state}
-}
 
-# check input argument is a valid date or not
-# now only support YYYYMMDD format, for example
-# 201708105
-validdate () {
-    local date=${1}
-    local state=1 #default is invalid date
-    if [ $# -gt 1 ] || [ $# -eq 0 ] ; then #only support one input
-        state=0
-    else
-        #echo ${date}
-        if [[ ${date} =~ ^[[:digit:]]+$ ]] ; then
-               # echo ${#date}
-            if [ "${#date}x" == "8x" ] ; then
-                local year=${1:0:4}
-               # echo ${year}
-                local month=${1:4:2} # must be 1~12
-               # echo ${month}
-                if [ $((10#${month})) -lt 1 ] || \
-                    [ $((10#${month})) -gt 12 ] ; then
-                    state=0
-                  #  echo invalid month
-                else #valid month, then day 
-                    local day=${1:6:2} 
-                 #   echo ${day}
-                    local maxday=30
-                    case "${month}" in
-                        "01"|"03"|"05"|"07"|"08"|"10"|"12") maxday=31;;
-                        "02") # check leap or not
-                            local isleap=$(leap ${year})
-                        #    echo ${isleap}
-                            if [ "${isleap}x" == "1x" ] ; then
-                                maxday=29
-                            else
-                                maxday=28
-                            fi
-                            ;;
-                        *) maxday=30;;
-                    esac
-                   # echo ${maxday}
-                    if [ $((10#${day})) -lt 1 ] || \
-                        [ $((10#${day})) -gt $((10#${maxday})) ] ;\
-                    then
-                        state=0 
-                
-                    fi
-                fi
-            else # not YYYYMMDD
-                state=0
-               # echo not YYYYMMDD
-            fi # not 8-length
-        else
-            state=0
-        fi #not digit
-    fi # not one input
-    echo ${state}
-}
 
 
 # ================= functions to get system information ===============
