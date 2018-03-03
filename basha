@@ -1,0 +1,156 @@
+bashdebugon(){
+    local file
+    if [ $# -eq 0 ] ; then
+        file=${_BASH_DEBUG_}
+    else
+        file=$1
+    fi
+    PS4='command at line $LINENO of function ${FUNCNAME[0]} defined in ${BASH_SOURCE[0]}, called from ${BASH_SOURCE[1]} at line ${BASH_LINENO[0]}: '
+    exec 999> ${file}
+    BASH_XTRACEFD=999
+    set -x
+}
+bashdebugoff(){
+    set +x
+    BASH_XTRACEFD=
+    PS4='+ '
+}
+bashdemo(){
+    local $IFS
+    # how to use
+    if [ $# -lt 1 ]; then
+cat <<_HELP
+    syntax:
+        demodash 1 2 3 
+_HELP
+    return
+    fi
+    # test parameter expansion
+    echo "parameter expansion:"
+    echo '  $*'= $*
+    IFS=";" && echo "IFS=;\$*"="$*"
+    echo '  $@'=$@
+    IFS=";" && echo "IFS=;\$@"="$@"
+    # test array expansion
+    echo "array expansion:"
+    x=1;x[1]=2;x[2]=3;
+    echo '  ${x[@]}='${x[@]}
+    echo '  "${x[@]}"='"${x[@]}"
+    IFS=";" && echo '   IFS=;${x[@]}='${x[@]}
+    IFS=";" && echo '   IFS=;"${x[@]}"='"${x[@]}"
+    echo '  "${x[*]}"='"${x[*]}"
+    echo '  ${x[*]}='${x[*]}
+    IFS=";" && echo '   IFS=;${x[*]}='${x[*]}
+    IFS=";" && echo '   IFS=;"${x[*]}"='"${x[*]}"
+    # test 0
+    echo "test: "
+    if [ 0 ]; then echo "   \"\$? of if [ 0 ]=\"$?(true)"
+    else echo " \"\$? if [ 0 ]=\"$?(false)"
+    fi
+    if [ 1 ]; then echo "   \"\$? if [ 1 ]=\"$?(true)"
+    else echo " \"\$? if [ 1 ]=\"$?(false)"
+    fi
+    if [ -1 ]; then echo "    \"\$? if [ -1 ]=\"$?(true)"
+    else echo "    \"\$? if [ -1 ]=\"$?(false)"
+    fi
+    if [ ]; then echo "    \"\$? if [ ]=\"$?(true)"
+    else echo "    \"\$? if [ ]=\"$?(false)"
+    fi
+    if [ "    " ]; then echo "\"\$? if [ \"\" ]=\"$?(true)"
+    else echo "    \"\$? if [ \"\" ]=\"$?(false)"
+    fi
+    echo -n "    "
+    type test
+    echo -n "    "
+    type '['
+    echo -n "    "
+    type '[['
+    echo -n "    "
+    type ']]'
+    echo -n "    "
+    type ']'
+    echo "  \"\$? test ']'\"=$?(false)"
+    # test [[]], octal and hexadecimals are evlauated automatically
+    decimal=15
+    octal=017
+    hex=0x0f
+    echo  test "[[]]", octal and hexadecimals are evlauated automatically
+    if [ "$decimal" -eq "$octal" ]; then
+        echo "    \"\$? of [ \"$decimal\" -eq \"$octal\" ]\"=$?";
+    else
+        echo "    \"\$? of [ \"$decimal\" -eq \"$octal\" ]\"=$?";
+    fi
+    if [ $decimal -eq $octal ]; then
+        echo "    \"\$? of [ $decimal -eq $octal ]\"=$?";
+    else
+        echo "    \"\$? of [ $decimal -eq $octal ]\"=$?";
+    fi
+    if [[ "$decimal" -eq "$octal" ]]; then
+        echo "    \"\$? of [[ \"$decimal\" -eq \"$octal\" ]]\"=$?";
+    else
+        echo "    \"\$? of [[ \"$decimal\" -eq \"$octal\" ]]\"=$?";
+    fi
+    if [[ $decimal -eq $octal ]]; then
+        echo "    \"\$? of [[ $decimal -eq $octal ]]\"=$?";
+    else
+        echo "    \"\$? of [[ $decimal -eq $octal ]]\"=$?";
+    fi
+    if [[ "$decimal" -eq "$hex" ]]; then
+        echo "    \"\$? of [[ \"$decimal\" -eq \"$hex\" ]]\"=$?";
+    else
+        echo "    \"\$? of [[ \"$decimal\" -eq \"$hex\" ]]\"=$?";
+    fi
+    if [[ $decimal -eq $hex ]]; then
+        echo "    \"\$? of [[ $decimal -eq $hex ]]\"=$?";
+    else
+        echo "    \"\$? of [[ $decimal -eq $hex ]]\"=$?";
+    fi
+    echo  test "(())" 
+    ((0)); echo "    \"\$? of ((0))\"=$?"
+    ((1)); echo "    \"\$? of ((1))\"=$?"
+    ((5>4)); echo "    \"\$? of ((5>4))\"=$?"
+    ((5>9)); echo "    \"\$? of ((5>9))\"=$?"
+    ((5==5)); echo "    \"\$? of ((5==5))\"=$?"
+    ((5-5)); echo "    \"\$? of ((5-5))\"=$?"
+    ((5/4)); echo "    \"\$? of ((5/4))\"=$?"
+    ((5/6)); echo "    \"\$? of ((5/6))\"=$?"
+    ((1/0)) 2>/dev/null; echo "    \"\$? of ((1/0))\"=$?"
+    # bash builtin variable
+    echo  bash builtin variable
+    echo "   "\$BASH=$BASH
+    echo "   "\$BASHPID=$BASHPID
+    echo "   "\$BASH_SUBSHELL=$BASH_SUBSHELL
+    echo "   "\$BASH_SUBSHELL=$BASH_SUBSHELL
+    echo "   "\$BASH_VERSION=$BASH_VERSION
+    echo "   "\$BASH_VERSINFO=${BASH_VERSINFO[@]}
+    echo "   "\$EIDTOR=$EDITOR
+    echo "   "\$EUID=$EUID
+    echo "   "\$GLOBIGNORE=$GLOB_IGNORE
+    echo "   "\$GROUPS=$GROUPS
+    echo "   "\$HOSTNAME=$HOSTNAME
+    echo "   "\$HOSTTYPE=$HOSTTYPE
+    echo "   "\$IGNOREOF=$IGNOREOF
+    echo "   "\$IGNOREEOF=$IGNOREEOF
+    echo "   "\$LC_COLLATE=$LC_COLLATE
+    echo "   "\$LC_CTYPE=$LC_CTYPE
+    echo "   "\$LINENO=$LINENO
+    echo "   "\$MACHTYPE=$MACHTYPE
+    echo "   "\$OSTYPE=$OSTYPE
+    echo "   "\$PIPESTATUS=$PIPESTATUS
+    echo "   "\$PPID=$PPID
+    echo "   "\$PROMPT_COMMAD=$PROMPT_COMMAND
+    echo "   "\$PS1=$PS1
+    echo "   "\$PS2=$PS2
+    echo "   "\$PS3=$PS3
+    echo "   "\$PS4=$PS4
+    echo "   "\$REPLY=$REPLY
+    echo "   "\$SHELLOPS=$SHELLOPS
+    echo "   "\$SHLVL=$SHLVL
+    echo "   "\$TIOUT=$TIOUT
+    echo "   "\$UID=$UID
+    echo "   "\$-=$-
+    echo "   "\$!=$!
+    echo "   "\$_=$_
+    echo "   "\$\$=$$
+    
+}

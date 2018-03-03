@@ -1,0 +1,131 @@
+#!/bin/bash
+w3sed () {
+    local pat
+    for i in $*
+    do
+        pat=${pat:+${pat}'\(\S\|\s\)*'}${i} 
+    done
+    #eval $(echo 'sed -n "/${pat}/Ip" ${HOME}/.w3')
+    grep "${pat}" ${HOME}/.w3
+}
+w3lynx (){
+    w3sed $* |cut -d' ' -f1|xargs lynx
+}
+w3wget (){
+    local _domain=
+    local _domain0=
+    case "${1}" in
+        "-D"|"-d"|"--domain")
+            _domain=$2
+            shift 2
+            ;;
+    esac
+    local site=$(w3sed $* |cut -d' ' -f1)
+    #echo ${site}
+    if [ -z ${_domain} ] ; then 
+        _domain0=${site%%[!/]/[!/]*}
+        _domain=${_domain0}${site:${#_domain0}:1}
+        _domain=${_domain#*//}
+    fi
+    #echo ${_domain0}
+    #echo ${_domain}
+    wget -k -r ${site} -D ${_domain}
+}
+w3git (){
+    git clone `w3sed $* |cut -d' ' -f1`
+}
+
+fortdown (){
+    local fortran='https://people.sc.fsu.edu/~jburkardt/f_src/'
+    case "$1" in 
+        "-a"|"-all")
+            wget ${fortran}/${2}/${2}.f90
+            wget -k ${fortran}/${2}/${2}.html
+            sed  -i 's/f_src\/\(f_src\)*\//f_src\//' ${2}.html
+            wget ${fortran}/${2}/${2}_prb.f90
+            wget ${fortran}/${2}/${2}_prb_output.txt
+            ;; 
+        "-f"|"--file"|"--special")
+            wget ${fortran}/${2}/${3}
+            ;;
+        "-l"|"--list")
+            lynx ${HOME}/.man/f_src.html
+            ;;
+        "-o"|"--output")
+            wget ${fortran}/${2}/${2}_prb_output.txt
+            ;;
+        "-p"|"--print")
+            echo ${fortran}
+            ;;
+        "-s"|"--source")
+            wget ${fortran}/${2}/${2}.f90
+            ;;
+        "-t"|"--test")
+            wget ${fortran}/${2}/${2}_prb.f90
+            ;;
+        "-w"|"--html")
+            wget -k ${fortran}/${2}/${2}.html
+            sed  -i 's/f_src\/\(f_src\)*\//f_src\//' ${2}.html
+            ;;
+        "--tutorial-gfortran-keywords"|"--tgfk")
+            lynx ~/.man/gcc.gnu.org/onlinedocs/gfortran/Keyword-Index.html
+            ;;
+        "--tutorial-gfortran-index"|"--tgfi")
+            lynx /home/inray/.man/gcc.gnu.org/onlinedocs/gfortran/index.html
+            ;;
+        "--tutorial-gfortran-intrinsic-functions"|"--tgfif")
+            lynx ~/.man/gcc.gnu.org/onlinedocs/gfortran/Intrinsic-Procedures.html
+            ;;
+        "--tutorial-gfortran-intrinsic-modules"|"--tgfim")
+            lynx ~/.man/gcc.gnu.org/onlinedocs/gfortran/Intrinsic-Modules.html
+            ;;
+        "--tutorial-fortran-computational-chemistry-list"|"--tfccl")
+            lynx /home/inray/.man/www.ccl.net/cca/software/SOURCES/FORTRAN/allen-tildesley-book/f.00.shtml
+            ;;
+        "--tutorial-fortran-f77"|"--tf77")
+            lynx ~/.man/docs.oracle.com/cd/E19957-01/805-4939/index.html
+            ;;
+        "--tutorial-fortran-f77to90"|"--tf77to99")
+            lynx ~/.man/www.nsc.liu.se/\~boein/f77to90/f77to90.html
+            ;;
+        "--tutorial-fortran-imsl"|"--tfimsl")
+            lynx ~/.man/docs.roguewave.com/imsl/fortran/6.0/sfun/SFUN_HTML-toc.htm
+            ;;
+        "--tutorial-fortran-jean-pierre-moreau"|"--tfjpm")
+            lynx ~/.man/jean-pierre.moreau.pagesperso-orange.fr/fortran.html
+            ;;
+        "--tutorial-fortran-mtu"|"--tfmtu")
+            lynx /home/inray/.man/pages.mtu.edu/\~shene/COURSES/cs201/NOTES/format.html
+            ;;
+        "--tutorial-fortran-numerical-recipies"|"--tfnr")
+            lynx ${HOME}/Prj/41-famous/nr/nr-fortran77_90-src-v.2.10a/index.htm
+            ;;
+        "--tutorial-python-sympy"|"--tps")
+            lynx /home/inray/.man/docs.sympy.org/latest/index.html
+            ;;
+        "-h"|"--help"|*)
+            echo "    -a"\|"-all" code-name
+            echo "    -f"\|"--file"\|"--special" code_name file
+            echo "    -h"\|"--help"
+            echo "    -l"\|"--list" 
+            echo "    -o"\|"--output" code-name
+            echo "    -p"\|"--print"
+            echo "    -s"\|"--source" code-name
+            echo "    -t"\|"--test"   code-name
+            echo "    -w"\|"--html"   code-name
+            echo "    --tutorial-gfortran-keywords"\|"--tgfk"
+            echo "    --tutorial-gfortran-index"\|"--tgfi"
+            echo "    --tutorial-gfortran-intrinsic-functions"\|"--tgfif"  \[intrinsic functions\]
+            echo "    --tutorial-gfortran-intrinsic-modules"\|"--tgfim" \[intrinsic modules\]
+            echo "    --tutorial-fortran-computational-chemistry-list"\|"--tfccl"
+            echo "    --tutorial-fortran-f77"\|"--tf77"
+            echo "    --tutorial-fortran-f77to90"\|"--tf77to90"
+            echo "    --tutorial-fortran-imsl"\|"--tfimsl"
+            echo "    --tutorial-fortran-jean-pierre-moreau"\|"--tfjpm"
+            echo "    --tutorial-fortran-mtu"\|"--tfmtu" \[basic\]
+            echo "    --tutorial-fortran-numerical-recipies"\|"--tfnr"
+            echo "    --tutorial-python-sympy"\|"--tps"
+            ;;
+    esac
+}
+

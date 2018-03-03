@@ -1,0 +1,94 @@
+#!/bin/bash
+VERSION=0-1
+PROGNAME=$(basename $0)
+syntax(){
+    echo "Synopsis:"
+    echo "  pathpart [-h]"
+    echo "  pathpart files"
+    echo "  pathpart [-n] p|b|e|s|f|be|pbe files"
+    echo "  pathpart [-n] [1-7] files"
+    echo "  pathpart [-n] [1-7] files "
+    echo 
+    echo -n "  It usually expects one or more of the five parameters (pbesf) above."
+    echo -n "It departs file name into three parts: path, base name, extension. It should"
+    echo -n "noted that base name has no extension (last .*). The last .* will be automatically"
+    echo    "recognized as extension unless \"-n\" option is provided."
+    echo -n "  It can also accept a octal digit, defined very similar Unix-like file permission"
+    echo    "as follows:"
+    echo "------------------------"
+    echo "      1, path"
+    echo "      2, base name"
+    echo "      4, extension"
+    echo "------------------------"
+    echo "So, b corresponds to type 2(only base name)"
+    echo "    f                     7(1+2+4)    "
+    echo "    p                     1(only path)"  
+    echo "    s                     6(2+4)"
+    echo "    e                     4(only extension)"
+    echo "  If no parameters provided, then 7 or f is assumed, return full path of specified file(s)."
+    echo "  It expects one or more file name as last argument(s), used by realpath.It does depend /usr/bin/realpath."
+    echo ""
+    echo "Parameters:"
+    echo "  b, base name without extension."
+    echo "  f, full path, same as realpath file"
+    echo "  p, only pure path where file exists"
+    echo "  s, short name, base name+extension, same as bx combination"
+    echo "  x, only extension"
+    echo "  N, defined above, maybe 1 2 4 6 7"
+    echo 
+    echo "Option:"
+    echo -n "  -n, optional, for file has \".*\" part but not to be considered as extension."
+    echo    "      if there exists only one (.*) constructor, -n with parameter b is equal to parameter s."
+    echo "  -h, print this help"
+}
+syntaxless(){
+    syntax |less
+}
+[ $# -eq 0 ] && syntaxless && exit 0
+[ "$1" == "-h" ] && syntaxless && exit 0
+type=7 #default full path
+efile=
+file=
+files=
+noex=0 #default recognise last (.*) constructor as extension
+realpathop=
+i=
+IFS=$'\012'
+# pares input
+if [ "$1" == "-realpath" ]; then realpathop=$2;shift 2;fi
+if [ "$1" == "-n" ]; then noex=1;shift;fi
+case "$1" in
+    'p') type=1;shift;;
+    'b') type=2;shift;;
+    'e') type=4;shift;;
+    's') type=6;shift;;
+    'f') type=7;shift;;
+    'be'|'eb') type=6;shift;;
+    'pbe'|'peb'|'bpe'|'bep'|'epb'|'ebp') type=7;shift;;
+    1|2|4|6|7) type=$1;shift;;
+    *) [ ! -f "$1" ] && echo "Invalid option $1" && exit 1;;
+esac
+i=0;
+while [ $# -gt 0 ]; do
+    # invoking realpath
+    file=$(realpath ${realpathop:+$realpathop} $1)
+    shift
+    case $type in
+        1) files[$i]=${file%/*};;
+        2) file=${file##*/}
+           files[$i]=${file%.*}
+           ;;
+        4) file=${file##*/};
+            efile=${file#*.}
+            if [ "${efile}x" == "${file}x" ] ; then
+                files[$i]=
+            else
+                files[$i]=${efile}
+            fi
+            ;;
+        6) files[$i]=${file##*/};;
+        7) files[$i]="$file";;
+    esac
+    let ++i
+done
+echo "${files[*]}"

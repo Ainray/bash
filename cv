@@ -1,0 +1,15 @@
+#!/bin/bash
+VERSION=0-1
+PROGNAME=$(basename $0)
+
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME}                      print basic information"
+    echo "  ${PROGNAME} [-]h|[--]help        print this help"
+}
+cv_ne (){
+    echo "Name  :   Ainray"
+    echo "E-mail:   wwzhang0421@163.com"
+}
+#parse input
+[ $# -eq 0 ] && cv_ne && exit 0

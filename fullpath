@@ -1,0 +1,29 @@
+#!/bin/bash
+VERSION=0-1
+PROGNAME=$(basename $0)
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME}                                     print this help"
+    echo "  ${PROGNAME} [-t] pathpart1 pathpart2 ...        concatenate pathparts into fullpath"
+    echo 
+    echo "OPTIONS:"
+    echo "  -t, optional, if -t exits, then add tailing slash(/)."
+}
+pathcat() {
+    local fullpath
+    local noe=0
+    local part=
+    while [ $# -gt 0 ]; do
+        part="${1%/}"
+        case "${part}" in
+            .) fullpath="${fullpath:+${fullpath}/}$(pwd)";shift;;
+            ~) fullpath="${fullpath:+${fullpath}/}${HOME}";shift;;
+            -t) noe=1;shift;;
+            *) fullpath="${fullpath:+${fullpath}/}${part}";shift;;
+        esac
+    done
+    [ "${noe}x" == "0x" ]  && echo "${fullpath}" && return 0
+    echo "${fullpath}/"
+}
+[ $# -eq 0 ] && usage && exit 0
+pathcat "$@"

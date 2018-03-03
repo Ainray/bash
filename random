@@ -1,0 +1,66 @@
+#!/bin/bash
+########################################################################
+#                                                                      #
+# author:        Ainray                                                #
+#                                                                      #
+# email:         wwzhang0421@163.com                                   #
+#                                                                      #
+# function:      random                                                #
+#                                                                      #
+# created:       2017-12-25 20:39:27                                   #
+#                                                                      #
+# modified:      2017-12-25 23:33:51                                   #
+#                                                                      #
+# introduction:  Random function.                                      #
+#                                                                      #
+# license:       Public license.                                       #
+#                                                                      #
+########################################################################
+syntax() {
+# Function embedded within function.
+  echo    "Syntax:"
+  echo    "      random [-h] [min] [max] [div] [n]"
+  echo 
+  echo    "Parameters:"
+  echo    "    min, is the minimum value, default is 0"
+  echo    "    max, is the maximum value, default is 32767"
+  echo    "    div, specifies that the answer must be a multiple of this value(div), default is 1." 
+  echo    "    n, size of return array, default is 1."
+  
+  echo 
+  echo    "    It expects up to 4 passed parameters, but all are completely optional. If any value is missing, defaults are "
+  echo    "supplied as:0 32767 1 1. The return value answer must be evenly divisible by this number(div). In addition, min and "
+  echo    "max is also be modified automatically to a multibple of div. Successful completion returns 0, unsuccessful"
+  echo    "completion returns usage syntax and 1. The return value is stored in the global variable with same as the function"
+  echo    "random. The answer is also displayed into the STDOUT."
+  echo    
+  echo    "Options:"
+  echo    "    -h, print this help"
+}
+# check input parameters
+OPTIND=1
+[ $# -eq 0 ] && syntax && exit 0
+[ "$1" == "-h" ] && syntax && exit 0
+min=${1:-0}
+max=${2:-32767}
+div=${3:-1}
+n=${4:-1}
+range=
+tmp=
+i=
+result=
+[ $# -gt 4 -o ${div} -eq 0 -o ${min} -eq ${max} -o ${n} -lt 1 ] && syntax && exit 1
+# div must be positive
+[ ${div} -lt 0 ] && div=$((0-div))
+
+#swap min and max if necessary
+if [ ${min} -gt ${max} ];then tmp=${min};min=${max};max=${tmp};fi
+# fix min and max with multiple of div if necessary
+if [ $((min/div*div)) -ne ${min} ]; then  min=$((min/div*div));fi
+if [ $((max/div*div)) -ne ${max} ]; then  max=$((max/div*div));fi
+range=$((max-min+1))
+#echo max=${max},min=${min},div=${div},range=${range}
+for((i=0;i<$n;++i)) do 
+    let "result[$i]=(((RANDOM%range)/div*div+min))" 
+done
+echo ${result[@]}

@@ -1,0 +1,29 @@
+#!/bin/bash
+VERSION="0-1"
+PROGNAME=$(basename $0)
+
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME} -f <FS> <string list>"
+    echo 
+    echo "Introduction:"
+    echo "  This tool concatenate <string list> one by one, which are separated by <FS>."
+    echo ""
+    echo "Example:"
+    echo 
+    echo '      strcat -f ";" 1 2 3'
+    echo '      strcat -f "" 1 2 3' 
+    echo 
+    echo "Options:"
+    echo "  -f, field separator, default is ;"
+    echo "  -h, print this help."
+    echo "NOTE: all options must before <string list>"
+}
+[ $# -eq 0 ] && usage  && exit 0
+[ "$1" == "-h" ] && usage && exit 0
+[ "$1" == "-f" ] && FS="$2" && shift 2
+while [ $# -gt 0 ] ; do
+    output="${output:+${output}${FS}}${1}"
+    shift
+done
+echo "${output}"

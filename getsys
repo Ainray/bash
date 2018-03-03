@@ -1,0 +1,144 @@
+#!/bin/bash
+VERSION="0-1"
+PROGNAME=$(basename $0)
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME} [-cehklvw]"
+    echo "Options:"
+    echo "  -c, print color information"
+    echo "  -h, print this help"
+    echo "  -e, print BASH EMACS shortcut keys"
+    echo "  -k, print Ctrl-key and corresponding ASCII"
+    echo "  -l, print detail color list"
+    echo "  -v, print version"
+    echo "  -w, print word font size"
+}
+
+printcolor(){
+# function for display current bash colors scheme
+# this function print current bash colors for files
+# refer to : dircolors -p
+# \e means escape, try to : ls --color=always $HOME > color.sample
+# give long name 
+    local $IFS
+    eval $(echo "no=normal;rs=reset;di=directory;\
+    ln=symbolic link;mh=multihardlink;pi=named pipe;\
+    so=socket;do=door;bd=block device;cd=character device;\
+    or=orphan;mi=missing;su=setuid;sg=setgid;\
+    ca=capability;tw=target writable;ow=other writable;
+    st=sticky;ex=exec;"|sed 's/=/="/g; s/\;/"\n/g;'|\
+        sed -n 's/^/local /;$!p')
+    echo "Attribute codes:"
+    dircolors -p |sed -n '/=/p'|sed 's/#//' |sed -n '1p'
+    echo "Color codes:"
+    dircolors -p |sed -n '/=/p'|sed 's/#//' |sed -n '2,$p'
+    echo "Bash sript color syntax(\033 escape next character): "
+    echo ' "\033[01;32mwhat\033[00m" will display' \
+'"'"$(echo -e "\033[01;32mwhat\033[00m")"'"'
+}
+printcolor_list(){
+    local IFS=':'
+    for i in ${LS_COLORS}
+    do
+        x=${i%=*} 
+        if [ -v ${x} ] ; then
+            echo -e "\e[${i#*=}m${!x}\e[0m : ${i#*=}"
+        else
+            echo -e "\e[${i#*=}m${x}\e[0m : ${i#*=}"
+        fi
+    done
+}
+ctrlkey(){
+    echo "                                  Generl useful ascii codes                                    "
+    echo "---------------------------------------------------------------------------------------------------------"
+    echo "Name      Decimal     Octal       Hex     C-escape        Ctrl-key        Description"
+    echo "---------------------------------------------------------------------------------------------------------"
+    echo "BEL       7           007         0x07    \a              ^G              Terminal bell"
+    echo "BS        8           010         0x08    \b              ^H              Backspace"
+    echo "HT        9           011         0x09    \t              ^I              Horizontal TAB"
+    echo "LF        10          012         0x0A    \n              ^J              Linefeed"
+    echo "VT        11          013         0x0B    \v              ^K              Verical TAB"
+    echo "FF        12          014         0x0C    \f              ^L              Formfeed(New page)"
+    echo "CR        13          015         0x0D    \r              ^M              Carriage return"
+    echo "SO        14          016         0x0E                    ^N              G1 character set"
+    echo "SI        15          017         0x0F                    ^O              G0 character set"
+    echo "CAN       24          030         0x18                    ^X              interrupt escape sequences"
+    echo "SUB       26          032         0x1A                    ^Z              interrupt escape sequences"
+    echo "Esc       27          033         0x1B    <none>          ^[              Escape character"
+    echo "DEL       127         177         0x7F    <none>          <none>          Delete character"
+    echo "CSI                               0x9B                                    Esc ["
+    echo "---------------------------------------------------------------------------------------------------------"
+    echo "Note: man console-codes"
+}
+bashemacskey(){
+    echo "--------------------------------------------------------------------------------"
+    echo "Ctrl Key          Meaning"
+    echo "--------------------------------------------------------------------------------"
+    echo "Ctrl+C            send SIGINT"
+    echo "Ctrl+z            SIGSTP, suspend"
+    echo "Ctrl+D            EOF"
+    echo "Ctrl+L            clear terminal"
+    echo "Ctrl+S            stop all outputs"
+    echo "Ctrl+Q            resume outputs"
+    echo "Ctrl+A            HOME"
+    echo "Ctrl+E            END"
+    echo "Ctrl+B            back one character"
+    echo "Alt+B             back one word"
+    echo "Ctrl+F            forward one character"
+    echo "Alt+F             forward one word"
+    echo "Ctrl+H            back one character"
+    echo "Ctrl+XX           hold ctrl, then xx jump from head to current"
+    echo "Ctrl+D            delete current character"
+    echo "Alt+D             delete to word END"
+    echo "Ctrl+H            delete previous character"
+    echo "Ctrl+W            delete previous word"
+    echo "Ctrl+U            delete to HOME"
+    echo "Ctrl+K            delete to END from current cursor"
+    echo "Ctrl+Y            paste"
+    echo "Ctrl+T            swap two charaters"
+    echo "Alt+T             swap two words"
+    echo "Alt+U             upper to current word END"
+    echo "Alt+L             lower to current word END"
+    echo "Alt+C             upper current character"
+    echo "Ctrl+P/N          history(up/down)"
+    echo "Ctrl+R/O/G        search commmand(search/exec/leave)"
+    echo "--------------------------------------------------------------------------------"
+}
+wordfontsize(){
+cat <<_FONTSIZE
+                  Word Font Size
+    -------------------------------------------
+    Font No.      Point(pt)       Milimeter(mm)
+    -------------------------------------------
+      0             42              14.82
+      0s            36              12.70
+      1             26               9.17
+      1s            24               8.47
+      2             22               7.76
+      2s            18               6.35
+      3             16               5.64
+      3s            15               5.29
+      4             14               4.94
+      4s            12               4.23
+      5             10.5             3.70
+      5s             9               3.18
+      6              7.5             2.56
+      6s             6.5             2.29
+      7              5.5             1.94
+      8              5               1.76
+    -------------------------------------------
+    NOTE: 1s mean small No. 1, and so on.
+_FONTSIZE
+}
+
+[ $# -eq 0 ] && usage && exit 0
+case "$1" in
+    -c|c) printcolor;;
+    -e) bashemacskey;;
+    -h|--help) usage;;
+    -l|--list) printcolor_list;;
+    -k|--ctrlkey) ctrlkey;;
+    -v|--version) echo "${PROGNAME} ${VERSION}";;
+    -w) wordfontsize;;
+    *) usage;;
+esac

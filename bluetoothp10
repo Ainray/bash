@@ -1,0 +1,28 @@
+#!/bin/bash
+VERSION="0-1"
+PROGNAME=$(basename "$BASH_SOURCE")
+syntax(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME} [-ahlns] "
+    echo "Options:"
+    echo "  -a, print P10 Bluetooth MAC address"
+    echo "  -h, print this help"
+    echo "  -l, print local Alienware Bluetooth MAC address"
+    echo "  -n, print Name of HUAWEI P10"
+    echo "  -s, scan Bluetooth device"
+    echo "NOTE: More refer to hcitool"
+}
+[ $# -eq 0 ] && syntax && exit 0
+# get by hcitool scan
+addr="C4:86:E9:3D:8C:4D"
+name="HUAWEI P10"
+# get by hciconfig |sed -n 2p|cut -d  -f3
+laddr="9C:B6:D0:04:12:20"
+case "$1" in 
+    -a|a) echo "${addr}";;
+    -l|l) echo "${laddr}";;
+    -n|n) echo "${name}";;
+    -s|s) echo $(hcitool scan);;
+    h|-h|--help) usage;;
+    *) usage;;
+esac

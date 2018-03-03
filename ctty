@@ -1,0 +1,20 @@
+#!/bin/bash
+# check current tty when you in pty
+# in some case, you maybe do not want to know current connected terminal device
+# instead you want to know current process is derived from which tty. This gives
+# what you want.
+ppid=
+ptty=
+# inital current process
+pid=$$
+counter=0
+while :; do
+    ppid=$(ps -p ${pid} -o ppid h)
+    # find tty of parent process
+    ppty=$(ps -p ${ppid} -o tty h)
+    echo ${ppty} | grep "tty" 2>&1 >/dev/null && echo ${ppty} && exit 0
+    # if not find, continue upward
+    pid=${ppid} 
+    let ++counter
+    [ ${counter} -ge 10 ] && exit 1
+done

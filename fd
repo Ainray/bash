@@ -1,0 +1,25 @@
+#!/bin/bash
+usage(){
+    echo "SYNOPSIS:"
+    echo "  fd              print this help"
+    echo "  fd -l           list current dedicated fd"
+    echo "  fd -c           return a valid fd"
+}
+
+# from create_ap(https://github.com/oblique/create_ap)
+get_avail_fd() {
+    local x
+    for x in $(seq 1 $(ulimit -n)); do
+        # check file exits or not
+        if [[ ! -a "/proc/$BASHPID/fd/$x" ]]; then
+            echo $x
+            return
+        fi
+    done
+    echo 0
+}
+[ $# -eq 0 -o $# -gt 1 ] && usage  && exit 1
+case "$1" in
+    -c|c) get_avail_fd;;
+    -l|l) ls /proc/$BASHPID/fd;;
+esac

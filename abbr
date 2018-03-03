@@ -1,0 +1,43 @@
+#!/bin/bash
+syntax(){
+    echo "Syntax: "
+    echo "       abbr [-ehps]"
+    echo ""
+    echo "Options: "
+    echo "  -e, edit the abbreviation database file"
+    echo "  -h, print this help"
+    echo "  -p, print the abbreviations in formatted form, every field maybe truncated when beyong a length limit."
+    echo "  -s, print the abbrivation database file source text."
+    echo ""
+    echo "Introduction:"
+    echo "  If no options is given, just print the abbreviations in formated form, same with -p opion."
+}
+printtype=0
+ishelp=0
+abbrpath="${HOME}/.note/abbr"
+printformat(){
+    echo ------------------------------------------------------------------------------------------------------------------------
+    echo "abbrivation      full                                     definition"
+    echo ------------------------------------------------------------------------------------------------------------------------
+    sed -n '/^\s*#/!p'  ${abbrpath} |\
+        awk -F ";" -v COL=${COLUMNS} '{$1=substr($1,1,15);$2=substr($2,1,40);$3=substr($3,1,COL-57);printf "%-15s %-40s %s\n",$1,$2,$3}'
+}
+printsource(){
+    sed -n '/^\s*#/!p'  ${abbrpath}
+}
+while :; do
+    case "$1" in
+        "-e") vim ${abbrpath};shift;;
+        "-h") ishelp=1;shift;;
+        "-p") printtype=1;shift;;
+        "-s") printtype=2;shift;;
+        #"")printtype=1;shift;;
+        *) syntax;exit 1;;
+    esac
+    [ $# -ge 0 ] && break
+done
+[ "${ishelp}x" == "1x" ] && syntax &&  exit 0
+case "$printtype" in
+    1) printformat;;
+    2) printsource;;
+esac

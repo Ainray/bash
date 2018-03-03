@@ -1,0 +1,107 @@
+#!/bin/bash
+VERSION=0-1
+PROGNAME=$(basename $0)
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME}                                 print this help"
+    echo "  ${PROGNAME} -c|f|s dir1 dir2                compare two directories only by names"
+    echo "  ${PROGNAME} -c|f|s dir1 dir2 [-z] [-l]"
+    echo 
+    echo "OPTIONS:"
+    echo "  -c, list differences between two directories"
+    echo "  -f, list files in <dir1> but not in <dir2>"
+    echo "  -s, list files in <dir2> but not in <dir1>"
+    echo "  -l, optional, print files with full paths"
+    echo "  -z, optional, separate files by spaces instead of newline"
+}
+# parse inputs
+[ $# -eq 0 -o $# -gt 5 ] && usage && exit 0
+
+dir1=${2%/}
+dir2=${3%/}
+buf1=
+fullbuf1=
+buf2=
+fullbuf2=
+
+diffdir1(){
+    #parse input
+    local d1=${1:-dir1}
+    local d2=${2:-dir2}
+    local buf=${3:-buf1}
+    local fullbuf=${4:-fullbuf1}
+    #echo ${!d1}
+    #echo ${!d2}
+    #echo ${buf}
+    #echo ${fullbuf}
+    local name
+    local i1=0
+    for i in $(ls -A ${!d1});do
+        name=$(basename "$i")
+        # cifse4f is created by system, ignore it
+        if [ ! -e "${!d2}/${name}" -a ${name} != "cifse4f" ]; then 
+            eval "${buf}[${i1}]=${name}";
+            eval "${fullbuf}[${i1}]=$(realpath ${!d1}/${name})"
+            let ++i1
+        fi
+    done
+}
+diffdir2(){
+    diffdir1 dir2 dir1 buf2 fullbuf2
+}
+diffdir0(){
+    #parse input
+    diffdir1 
+    diffdir2
+}
+diff_print(){
+    local IFS
+    local type=${1:-0}
+    local bufnum=${2:-1}
+    local cmd=
+    case "${type}" in
+        0) IFS=$'\012';cmd="echo -e \"\${buf${bufnum}[*]}\"";;
+        1) IFS=$'\012';cmd="echo -e \"\${fullbuf${bufnum}[*]}\"";;
+        2) IFS=$' ';cmd="echo \"\${buf${bufnum}[*]}\"";;
+        3) IFS=$' ';cmd="echo \"\${fullbuf${bufnum}[*]}\"";;
+    esac
+    #echo "${cmd}"
+    eval "${cmd}"
+}
+# process
+cmptype="$1"
+printtype=0
+# print type
+#     NUL(z)  l
+#       0     0     default, short name with newline
+#       1     0     short name with NUL
+#       0     1     long name with newline
+#       1     1     long name with NUL
+
+[ "$4" == "-z" ] && let printtype+=2 
+[ "$4" == "-l" ] && let printtype+=1
+[ "$5" == "-z" ] && let printtype+=2 
+[ "$5" == "-l" ] && let printtype+=1
+[ "$4" == "-zl" ] && let printtype=3 
+[ "$4" == "-lz" ] && let printtype=3 
+case "${cmptype}" in
+    -c) 
+        diffdir0
+        echo only contained in ${dir1}
+        echo "----------------------------------------------------------------"
+        diff_print ${printtype} 1
+        echo 
+        echo only contained in ${dir2}
+        echo "----------------------------------------------------------------"
+        diff_print ${printtype} 2
+        ;;
+    -f) 
+        diffdir1
+        diff_print ${printtype} 1
+        ;;
+    -s) 
+        diffdir2
+        diff_print ${printtype} 2
+        ;;
+    *)  echo "Invalid option ${cmptype}." && exit 1
+esac

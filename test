@@ -1,0 +1,5 @@
+opts="$@"
+set --  ${opts[@]}
+echo $#
+echo "$@" 
+echo "$*"

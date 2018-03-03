@@ -1,0 +1,35 @@
+#!/bin/bash
+[[ $_ != $0 ]] && ISSOURCE=1 || ISSOURCE=0
+VERSION="0-1"
+PROGNAME=$(basename "$BASH_SOURCE")
+usage(){
+    echo "SYNOPSIS:"
+    echo "  source ${PROGNAME} [-hvs]"
+    echo "NOTE: This tool should be sourced to ensure appropriate IFS is set or unset"
+    echo "Example:"
+    echo "  . ${PROGNAME} -v"
+    echo "  . ${PROGNAME} -s"
+    echo "Options:"
+    echo "  -h, print this help"
+    echo "  -v, display current IFS value"
+    echo "  -s, reset IFS into default value"
+}
+ifsecho(){
+    echo -n "$IFS"|cat -te
+}
+ifsreset(){
+    IFS=$' \t\n'
+}
+# parse input
+if [ "${ISSOURCE}x" == "1x" ]; then
+    [ $# -eq 0 ] && usage && return 0
+    [ "$1" == "-h" -o "$1" == "--help" ]  && usage && return 0 
+else
+    [ $# -eq 0 ] && usage && exit 0
+    [ "$1" == "-h" -o "$1" == "--help" ]  && usage && exit 0 
+fi
+case "$1" in 
+    -h|h) usage;;
+    -v|v) ifsecho;;
+    -s|s) ifsreset;;
+esac

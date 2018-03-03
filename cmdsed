@@ -1,0 +1,19 @@
+#!/bin/bash
+VERSION="0-1"
+PROGNAME=$(basename $0)
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME} [<keys>]"
+    echo "  "
+    echo "  This command SED cmd file in the home path (~/.cmd), which store common commands."
+}
+cmd_sed() {
+    local pat
+    for i in $*
+    do
+        pat=${pat:+${pat}'\(\S\|\s\)*'}${i} 
+    done
+    eval $(echo 'sed -n "/${pat}/Ip" ${HOME}/.cmd')
+}
+[ $# -eq 0 ] &&  usage && exit 0
+cmd_sed "$@"

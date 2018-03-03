@@ -1,0 +1,16 @@
+#!/bin/bash
+syntax(){
+    echo "SYNOPSIS:"
+    echo "      lightlocker [-k] [-h]"
+    echo 
+    echo " It accept a two optional options. To kill light-locker, which make X desktop black."
+    echo "When no option is provided, It print light-locker pid to check."
+    echo ""
+    echo "Options:"
+    echo "  -h, print this help"
+    echo "  -k, kill light-locker"
+}
+[ $# -gt 1 -o $# -eq 0 ] && syntax && exit 0
+[ "$1" == "-h" ] && syntax && exit 0
+[ "${1}x" == "x" ] && ps -u inray|grep "light-locker"
+[ "${1}" == "-k" ] && pidof light-locker|xargs kill -9

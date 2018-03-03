@@ -1,0 +1,70 @@
+#!/bin/bash
+VERSION="0-1"
+PROGNAME=$(basename "$BASH_SOURCE")
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME} [-abcpw]"
+    echo "Options:"
+    echo "  -a, list algorithm"
+    echo "  -b, list books"
+    echo "  -c, list constants"
+    echo "  -p, list problems"
+}
+
+alglist(){
+cat <<_ALGLIST
+                                    Good Book List
+    --------------------------------------------------------------------------------------
+        Description                                 Note
+    --------------------------------------------------------------------------------------
+        Euclidean algorithm                         Greatest common  divisor
+    --------------------------------------------------------------------------------------
+_ALGLIST
+}
+booklist(){
+cat <<_BOOKLIST
+                                    Good Book List
+    --------------------------------------------------------------------------------------
+        Book Name                                                           Note
+    --------------------------------------------------------------------------------------
+       Nabighian - 1987 - Electromagnetic methods in applied geophysics-theory.pdf
+       Smith - 1997 - The Scientist and Engineeer's Guide to Digital Signal Processing.pdf
+    --------------------------------------------------------------------------------------
+_BOOKLIST
+}
+phyconst(){
+cat <<_PHYCONST
+                            Constants in physics
+    --------------------------------------------------------------------------------------
+          value          unit(IS)                    phyical paramter        
+    --------------------------------------------------------------------------------------
+        8.854E-12         F/m                dielectric permittivity of free-space
+        4*piE-7           H/m                magnetic permeability of free-space           
+    --------------------------------------------------------------------------------------
+_PHYCONST
+}
+problist(){
+cat <<_PROBLIST
+                                 PROBLEM LIST
+    --------------------------------------------------------------------------------------
+               Problem Name                                       Note
+    --------------------------------------------------------------------------------------
+        [1]  Gibb's phenomenon
+        [2]  echo literally  some with many mixed quotes
+        [3]  vim fortran autocompletation
+        [4]  why cultral noise only has odd harmonics
+        [5]  Fourier integral obtained by numerical calculation
+        [6]  Add function keyboard, refer to http://rick.vanrein.org/linux/funkey/
+    --------------------------------------------------------------------------------------
+_PROBLIST
+}
+[ $# -eq 0 ] && usage && exit 0
+case "$1" in 
+    a|-a) alglist;;
+    b|-b) booklist;;
+    c|-c) phyconst;;
+    p|-p) problist;;
+    h|-h|--help) usage;;
+    *)usage;;
+esac
+

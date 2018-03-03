@@ -1,0 +1,46 @@
+#!/bin/bash
+VERSION="0-1"
+PROGNAME=$(basename $0)
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME} [-n <n>] [-p <pre>] <string list>"
+    echo 
+    echo "Example:"
+    echo 
+    echo "   strpad -n 10 -p '*' 111"
+    echo 
+    echo "  This tool add prefixes to <string list>."
+    echo ""
+    echo "OPTIONS:"
+    echo "  -h|--help, print this help"
+    echo -n "  -n, optional, positions after adding prefixes. If <n> is less than the original length of <string>,"
+    echo    "it will be omitted." 
+    echo    "  -p, optional, prefix placeholders, default is zero"
+    echo " NOTE: all OPTIONS must be before <string list>."
+}
+zeropad(){
+    local n=${1}
+    local pre=${2}
+    shift 2
+    #local str=${3}
+    for str in $*
+    do
+        xr=$(for i in $(seq $((${n}-${#str})));do echo -n "${pre}";done)
+        echo "${xr}${str}"
+    done
+}
+# parse input
+[ $# -eq 0 ] && usage && exit 0
+[ "$1" == "-h" -o "$1" == "--help" ]  && usage && exit 0
+
+# obtain length and prefix
+if [ "$1" == "-n" ];then
+    len="$2" && shift 2
+    [ "$1" == "-p" ] && pre="$2" && shift 2
+fi
+if  [ "$1" == "-p" ]; then 
+    pre="$2" && shift 2
+    [ "$1" == "-n" ] && len="$2" && shift 2
+fi
+#echo len=${len} pre=${pre}
+zeropad "${len}" "${pre}"  "$@"

@@ -1,0 +1,188 @@
+#!/bin/bash
+statblk(){
+    # usage:
+    #   IFS=':' rnn=($(statblk ${datafname}))
+    #   for((i=0;i<${#rnn[@]};++i)) ; do
+    #       echo "$i ${rnn[$i]}"
+    #   done
+    local x
+    local nr
+    local $IFS
+    local xx
+    local nxx # variable position of xx
+    local lxx # the physically last positon of xx
+    local exx # exx the effectively last positon of xx
+    local sxx=1 # sxx the effectively first position of xx,default is one
+    local cnr 
+    local i
+    local iii
+    local nb=1 # number of block
+    local nl   # block number of lines 
+    local nnl  # block number of lines, not including lines starting with #
+    local sl=1   # block start line 
+
+    x=$(grep -nvP '\S' $1|xargs|sed 's/ //g')
+    nr=$(wc -l $1 |cut -d' ' -f1)
+    nl=${nr}
+    nnl=nl
+    if [ ! -z "${x}" ] ; then
+        IFS=':' xx=($x)
+        lxx=$((${#xx[@]}-1))
+
+        #for((i=0;i<$((${#xx[@]}));++i)) ; do
+            #echo "$i: ${xx[$i]}"
+        #done
+        #remove heading blanks
+        # nxx, point to the first element of xx,starting from zero
+        nxx=0
+        while [ ${nxx} -le ${lxx} ] && [ ${xx[nxx]} -eq $((${nxx}+1)) ] 
+        do
+            nxx=$((${nxx}+1))
+        done
+        sxx=${nxx}
+        # start line
+        if [ ${nxx} -gt 0 ] ; then # first start line
+            sl=$((${xx[$((${nxx}-1))]}+1))
+        fi
+        #remove trailing blanks
+        # nxx, point to the last element of xx,starting from zero
+        # cnr, effectively last line number
+        nxx=${lxx}
+        cnr=${nr}
+        while [ ${nxx} -ge ${sxx} ] && [ ${xx[${nxx}]} -eq ${cnr} ]
+        do
+            cnr=$((${cnr}-1))
+            nxx=$((${nxx}-1))
+        done
+        exx=${nxx}
+        if [ ${cnr} -lt ${nr} ] ; then #for only one block
+            nl=$((${cnr}-$sl+1))
+        fi
+        # remove single blank, more than two consecutive blank lines
+        # separate a data into two blocks
+        for((i=${sxx};i<=${exx};)) ; do
+            iii=1
+            while [ $((${iii}+${i}))  -le ${exx} ] \
+                && [ ${xx[$((${iii}+${i}))]} -eq $((${xx[$i]}+iii)) ]
+            do
+                iii=$(($iii+1))
+            done
+            if [ $iii -gt 1 ] ; then # at least two blank lines together,add one block
+                nl[$(($nb-1))]=$((${xx[$i]}-${sl[$(($nb-1))]})) #correct previous block number of lines
+                sl[$nb]=$((${xx[$((${iii}+${i}-1))]}+1))
+                nl[$nb]=$(($cnr-${sl[$nb]}+1)) # default last block number of lines
+                nb=$(($nb+1))
+            fi
+            i=$(($i+$iii))
+        done
+    fi
+    #for((i=0;i<$nb;++i)) ; do
+        #echo "$i:   sl=${sl[$i]}, nl=${nl[$i]}"
+    #done
+    #reomve line starting with "#"
+    #echo "nb=${nb} "
+    for((i=0;i<${nb};++i)) ; do
+        nnl[$i]=$((nl[$i]-$(sed -n  "${sl[$i]},$((${sl[$i]}+${nl[$i]}-1))p" $1 \
+            |sed -n "/^\(\s\)*#/p" |wc -l)))
+        #if [ $i -lt $(($nb-1)) ] ; then
+        echo -n "${nnl[$i]}:"
+        #else
+            #echo -n "${nnl[$i]}"
+        #fi
+    done
+    echo 
+}
+mattranspose(){
+    local ofile=
+    local n=
+    for file in $*
+    do
+        if [ -f ${file} ] ; then
+            ofile="$(pathpart -b ${file})_T.$(pathpart -x ${file})"
+            echo -n '' > ${ofile}
+            n=`head -1 ${file} |wc -w`
+            for i in `seq $n`
+            do
+                echo `awk '{print $'${i}'}' ORS='\t' ${file}` >>${ofile}
+            done
+        fi
+    done
+}
+# ======================= functions to math ============================
+#   arbitrary precision calculation
+#   using bc
+#   Usage:
+#        float_eval 12.5/3.2
+#        float_eval  100.4/4.2+3.2*6.5
+float_eval()
+{
+    #global single-precision
+    local stat=0
+    local result=0.0
+    local float_scale=${1}
+    shift 
+    if [[ $# -gt 0 ]] ; then
+        #echo "scale=${float_scale};$*"
+        result=$(echo "scale=${float_scale};$*" \
+            |bc -q 2>/dev/null )
+        stat=$?
+        if [[ $stat -eq 0 && -z "$result" ]] ; then
+            stat=1
+        fi
+    fi
+    echo $result
+    return $stat
+}
+float_evali(){
+    local scale=0
+    float_eval ${scale} $* 
+}
+float_evalr(){
+    local scale=6
+    float_eval ${scale} $* 
+}
+float_evald(){
+    local scale=16
+    float_eval ${scale} $* 
+}
+float_evaliv(){
+    for i in $*
+    do 
+        float_evali  ${i}
+    done
+}
+float_evaldv(){
+    for i in $*
+    do 
+        #echo ${i}
+        float_evald  ${i}
+    done
+}
+float_evalrv(){
+    for i in $*
+    do 
+        float_evalr  ${i}
+    done
+}
+d2b(){
+    for i in $*
+    do 
+        echo "obase=2;${i}" |bc
+    done
+}
+
+d2h(){
+
+    for i in $*
+    do 
+        echo "obase=16;${i}" |bc
+    done
+}
+
+d2o(){
+
+    for i in $*
+    do 
+        echo "obase=8;${i}" |bc
+    done
+}

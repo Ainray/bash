@@ -1,0 +1,4 @@
+#!/bin/bash
+# pure text 
+IFS=$'\x1B'
+echo $'\x27'$@$'\x27'

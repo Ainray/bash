@@ -1,0 +1,26 @@
+#!/bin/bash
+syntax(){
+    echo "Syntax:"
+    echo "      eps2png [-h] ifile ofile [600]"
+    echo 
+    echo "  Using gs to convert eps file to png file. It expects three input parameters, "
+    echo "first is necessary, other two are optional."
+    echo 
+    echo "Paramters:"
+    echo "  ifile, input eps file name"
+    echo "  ofile, optional, output png file name, if not specified, it will be same as input file."
+    echo "  res,   resolution(dpi), default is 600"
+    echo 
+    echo "Options:"
+    echo "  -h, print this help"
+}
+if [ ! -x /usr/bin/gs ]; then echo "gs cannot be run.";return 1;fi
+if [ $# -gt 3 -o $# -lt 1 ]; then syntax;return 1;fi
+if [ "$1" = "-h" ]; then syntax;return 0;fi
+local ifile="${1%.eps}.eps"
+local ofile="${2:-${1%.eps}}"
+local res=${3:-600}
+ofile="${ofile%.png}.png"
+if [ ! -f "${ifile}" ]; then echo "File $ifile doesnot exist."; return 1;fi
+if [ -f "${ofile}" ]; then echo "File $ofile exists. Please give a new name.";return 1; fi
+gs -o -q -sDEVICE=png256 -dEPSCrop -r${res} -o${ofile} ${ifile} >/dev/null
