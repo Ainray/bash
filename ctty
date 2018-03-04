@@ -7,14 +7,20 @@ ppid=
 ptty=
 # inital current process
 pid=$$
+# pid=$BASHPID
 counter=0
 while :; do
-    ppid=$(ps -p ${pid} -o ppid h)
+    #echo $pid
+    ppid=$(ps -p ${pid} -o ppid h 2>/dev/null) || exit 1
     # find tty of parent process
-    ppty=$(ps -p ${ppid} -o tty h)
+    ppty=$(ps -p ${ppid} -o tty h 2>/dev/null) || exit 1
     echo ${ppty} | grep "tty" 2>&1 >/dev/null && echo ${ppty} && exit 0
+    # in some case(e.g., ssh login from Windows Xshell, the parent process
+    # invoking current bash (maybe) shell is sshd, and whose TTY will be ?.
+    echo "${ppty}" | grep "\?" 2>&1 >/dev/null && echo "${ppty}" && exit 0
     # if not find, continue upward
     pid=${ppid} 
     let ++counter
-    [ ${counter} -ge 10 ] && exit 1
+    #echo counter=$counter
+    [ ${counter} -ge 8 ] && exit 1
 done
