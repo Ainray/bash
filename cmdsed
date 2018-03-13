@@ -13,7 +13,7 @@ cmd_sed() {
     do
         pat=${pat:+${pat}'\(\S\|\s\)*'}${i} 
     done
-    eval $(echo 'sed -n "/${pat}/Ip" ${HOME}/.cmd')
+    eval $(echo 'sed -n "/${pat}/Ip" ${HOME}/.note/cmds')
 }
 [ $# -eq 0 ] &&  usage && exit 0
 cmd_sed "$@"
