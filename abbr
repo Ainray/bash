@@ -25,17 +25,17 @@ printformat(){
 printsource(){
     sed -n '/^\s*#/!p'  ${abbrpath}
 }
-while :; do
+#while :; do
     case "$1" in
         "-e") vim ${abbrpath};shift;;
         "-h") ishelp=1;shift;;
         "-p") printtype=1;shift;;
         "-s") printtype=2;shift;;
-        #"")printtype=1;shift;;
+        "")printtype=1;shift;;
         *) syntax;exit 1;;
     esac
-    [ $# -ge 0 ] && break
-done
+    #[ $# -ge 0 ] && break
+#done
 [ "${ishelp}x" == "1x" ] && syntax &&  exit 0
 case "$printtype" in
     1) printformat;;

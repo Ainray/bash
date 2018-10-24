@@ -268,6 +268,7 @@ options:
             --marg|--margin|--margins "0.2,0.8,0.2,0.8"
             -O|--OUT|--out-file
             -o|--origin "0,.5" [""]
+            --open "fbi|fbgs -r 600|display"
             -p|--para|--parametric "sin(7*t),cos(11*t)"
             --pal|--palette [defined (0 'black',1 'gold|aquamarine',[1 'red'],2 'gold')]
                             [gray positive]
@@ -403,7 +404,7 @@ __PLOTHELP__
     local testbuf=GNUPLOT_TESTBUF        # for test code,   simulate "test" in gnuplot
 
     #tools
-    local open=fbi      # used to open images
+    local open=     # used to open images
     local plotengine="plot" # gnuplot engine: plot or splot
 
     #== terminal setting
@@ -729,6 +730,9 @@ __PLOTHELP__
                 i=0
                 while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do object[$i]="$2"; i=$(($i+1));shift; done
                 shift;;
+            "--open")
+                open="$2";
+                shift 2 ;;
             "-p"|"--para"|"--parametric")
                 parametric=1; datamode="expression";i=0
                 while [[ ! "$2" =~ ^- ]] && [[ $# -gt 1 ]]; do data[$i]="${2#\\}";parametric[$i]=1; i=$(($i+1));shift; done
@@ -949,7 +953,12 @@ __PLOTHELP__
             ;;
         "pdf"|"pdfcairo")
             if [ "${term}" == "pdf" ]; then term="${term}cairo";fi
-            suffix=".${term%cairo}"; open="fbgs -r 600";
+            suffix=".${term%cairo}";
+            if [ -z "${open}" ]; then
+                if [ ${TERM} == "linux" ]; then open="fbgs -r 600"
+                else open="evince"; fi
+            fi
+
             tsize="7cm,7cm" 
             enhan="enhanced"
             font="Sans Bold,12"
@@ -1000,6 +1009,10 @@ __PLOTHELP__
         *) 
             term="pngcairo";suffix=".png"; if [ -z "${terminal}" ] ; then  terminal="${term}";fi;;
     esac
+    if [ -z "${open}" ]; then
+        if [ ${TERM} == "linux" ]; then open="fbi"
+        else open="display"; fi
+    fi
     strpushv $prebuf ";" "set terminal push" "set terminal ${terminal}";
     if [ -z ${outfile} ] && [ ! -z ${infile} ] ; then outfile=$(pathpart -b ${infile});fi
     if [ -z ${outfile} ]; then outfile=${defaultoutfile};fi
@@ -1099,6 +1112,8 @@ __PLOTHELP__
                         fi
                     fi
                     xycol[$i]="i ${indexnum[$i]:-0} u ${firstcol[$i]:+${firstcol[$i]}:}${secondcol[$i]} ${row[$i]:+ every ${row[$i]}}"
+                else
+                    xycol[$i]="i ${indexnum[$i]:-0} u ${xycol}"
                 fi
                 data[$i]="${data[$i]} ${xycol[$i]}"
             fi
@@ -1128,9 +1143,9 @@ __PLOTHELP__
             legendi='notitle'; if [ ! -z "${legend[$[$linenum]]}" ] ; then legendi="title '${legend[$linenum]}'"; fi
             if [[ "${datamode}" =~ "data"  ]];then
                 if [ -z "${infile[$linenum]}" ]; then infile[$linenum]="${infile[$[$linenum-1]]}";fi
-                datablock="${datablock:+${datablock},}'${infile[$linenum]}' ${data[$iline]} ${linemode[$linenum]} ${legendi}";
+                datablock="${datablock:+${datablock},}'${infile[$linenum]}' ${data[$linenum]} ${linemode[$linenum]} ${legendi}";
             else
-                datablock="${datablock:+${datablock},}${data[$iline]} ${linemode[$linenum]} ${legendi}";
+                datablock="${datablock:+${datablock},}${data[$linenum]} ${linemode[$linenum]} ${legendi}";
             fi
             linenum=$[$linenum+1]
         fi
@@ -1283,6 +1298,5 @@ __PLOTHELP__
     fi
     [ "${datamode}" != "flush" ] && cmd="${cmd};"'unset $buf; unset $cmdbuf;unset $databuf;unset $funcbuf;' \
             && cmd="${cmd}"'unset $graphbuf;unset $prebuf;unset $postbuf; unset $testbuf'
-    #echo ${cmd}
     eval ${cmd}
 }

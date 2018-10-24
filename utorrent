@@ -1,0 +1,3 @@
+#!/bin/sh
+wine ~/win10/Program\ Files\ \(x86\)/uTorrent/uTorrent.exe $1
+

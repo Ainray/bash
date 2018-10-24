@@ -17,10 +17,10 @@ syntax(){
 if [ ! -x /usr/bin/gs ]; then echo "gs cannot be run.";return 1;fi
 if [ $# -gt 3 -o $# -lt 1 ]; then syntax;return 1;fi
 if [ "$1" = "-h" ]; then syntax;return 0;fi
-local ifile="${1%.eps}.eps"
-local ofile="${2:-${1%.eps}}"
-local res=${3:-600}
+ifile="${1%.eps}.eps"
+ofile="${2:-${1%.eps}}"
+res=${3:-600}
 ofile="${ofile%.png}.png"
-if [ ! -f "${ifile}" ]; then echo "File $ifile doesnot exist."; return 1;fi
-if [ -f "${ofile}" ]; then echo "File $ofile exists. Please give a new name.";return 1; fi
+if [ ! -f "${ifile}" ]; then echo "File $ifile doesnot exist."; exit 1;fi
+if [ -f "${ofile}" ]; then echo "File $ofile exists. Please give a new name.";exit 1; fi
 gs -o -q -sDEVICE=png256 -dEPSCrop -r${res} -o${ofile} ${ifile} >/dev/null

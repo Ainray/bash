@@ -1,4 +1,37 @@
 #!/bin/bash
+VERSION=0-1
+PROGNAME=$(basename $0)
+usage(){
+    echo "SYNOPSIS:"
+    echo "  ${PROGNAME} w3sed|w3lynx|w3get|w3git|fortdown <parameter list>"
+    echo "  ${PROGNAME} w3sed <keywords>"
+    echo "  ${PROGNAME} w3lynx <keywords>"
+    echo "  ${PROGNAME} w3git <keywords>"
+    echo "  ${PROGNAME} fortdown <parameter list>"
+    echo "    -a"\|"-all" code-name
+    echo "    -f"\|"--file"\|"--special" code_name file
+    echo "    -h"\|"--help"
+    echo "    -l"\|"--list" 
+    echo "    -o"\|"--output" code-name
+    echo "    -p"\|"--print"
+    echo "    -s"\|"--source" code-name
+    echo "    -t"\|"--test"   code-name
+    echo "    -w"\|"--html"   code-name
+    echo "    --tutorial-gfortran-keywords"\|"--tgfk"
+    echo "    --tutorial-gfortran-index"\|"--tgfi"
+    echo "    --tutorial-gfortran-intrinsic-functions"\|"--tgfif"  \[intrinsic functions\]
+    echo "    --tutorial-gfortran-intrinsic-modules"\|"--tgfim" \[intrinsic modules\]
+    echo "    --tutorial-fortran-computational-chemistry-list"\|"--tfccl"
+    echo "    --tutorial-fortran-f77"\|"--tf77"
+    echo "    --tutorial-fortran-f77to90"\|"--tf77to90"
+    echo "    --tutorial-fortran-imsl"\|"--tfimsl"
+    echo "    --tutorial-fortran-jean-pierre-moreau"\|"--tfjpm"
+    echo "    --tutorial-fortran-mtu"\|"--tfmtu" \[basic\]
+    echo "    --tutorial-fortran-numerical-recipies"\|"--tfnr"
+    echo "    --tutorial-python-sympy"\|"--tps"
+
+}
+
 w3sed () {
     local pat
     for i in $*
@@ -11,26 +44,7 @@ w3sed () {
 w3lynx (){
     w3sed $* |cut -d' ' -f1|xargs lynx
 }
-w3wget (){
-    local _domain=
-    local _domain0=
-    case "${1}" in
-        "-D"|"-d"|"--domain")
-            _domain=$2
-            shift 2
-            ;;
-    esac
-    local site=$(w3sed $* |cut -d' ' -f1)
-    #echo ${site}
-    if [ -z ${_domain} ] ; then 
-        _domain0=${site%%[!/]/[!/]*}
-        _domain=${_domain0}${site:${#_domain0}:1}
-        _domain=${_domain#*//}
-    fi
-    #echo ${_domain0}
-    #echo ${_domain}
-    wget -k -r ${site} -D ${_domain}
-}
+
 w3git (){
     git clone `w3sed $* |cut -d' ' -f1`
 }
@@ -103,29 +117,13 @@ fortdown (){
         "--tutorial-python-sympy"|"--tps")
             lynx /home/inray/.man/docs.sympy.org/latest/index.html
             ;;
-        "-h"|"--help"|*)
-            echo "    -a"\|"-all" code-name
-            echo "    -f"\|"--file"\|"--special" code_name file
-            echo "    -h"\|"--help"
-            echo "    -l"\|"--list" 
-            echo "    -o"\|"--output" code-name
-            echo "    -p"\|"--print"
-            echo "    -s"\|"--source" code-name
-            echo "    -t"\|"--test"   code-name
-            echo "    -w"\|"--html"   code-name
-            echo "    --tutorial-gfortran-keywords"\|"--tgfk"
-            echo "    --tutorial-gfortran-index"\|"--tgfi"
-            echo "    --tutorial-gfortran-intrinsic-functions"\|"--tgfif"  \[intrinsic functions\]
-            echo "    --tutorial-gfortran-intrinsic-modules"\|"--tgfim" \[intrinsic modules\]
-            echo "    --tutorial-fortran-computational-chemistry-list"\|"--tfccl"
-            echo "    --tutorial-fortran-f77"\|"--tf77"
-            echo "    --tutorial-fortran-f77to90"\|"--tf77to90"
-            echo "    --tutorial-fortran-imsl"\|"--tfimsl"
-            echo "    --tutorial-fortran-jean-pierre-moreau"\|"--tfjpm"
-            echo "    --tutorial-fortran-mtu"\|"--tfmtu" \[basic\]
-            echo "    --tutorial-fortran-numerical-recipies"\|"--tfnr"
-            echo "    --tutorial-python-sympy"\|"--tps"
-            ;;
     esac
 }
 
+[ $# -eq 0 ] && usage && exit 0
+case ${1} in 
+    w3git) shift 1; w3git "$@";;
+    w3sed) shift 1; w3sed "$@";;
+    w3lynx) shift 1; w3lynx "$@";;
+    fortdown) shift 1; fortdown "$@";;
+esac

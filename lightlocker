@@ -10,7 +10,7 @@ syntax(){
     echo "  -h, print this help"
     echo "  -k, kill light-locker"
 }
-[ $# -gt 1 -o $# -eq 0 ] && syntax && exit 0
+[ $# -gt 1 ] && syntax && exit 0
 [ "$1" == "-h" ] && syntax && exit 0
 [ "${1}x" == "x" ] && ps -u inray|grep "light-locker"
 [ "${1}" == "-k" ] && pidof light-locker|xargs kill -9

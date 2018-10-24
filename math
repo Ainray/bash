@@ -1,4 +1,11 @@
 #!/bin/bash
+VERSION="0-1"
+PROGNAME=$(basename $BASH_SOURCE)
+usage(){
+    echo "SYNOPSIS:"
+    echo "  $PROGNAME d2b|b2h|d2o <num list>"
+}
+
 statblk(){
     # usage:
     #   IFS=':' rnn=($(statblk ${datafname}))
@@ -186,3 +193,25 @@ d2o(){
         echo "obase=8;${i}" |bc
     done
 }
+
+# parse inut
+[ $# -eq 0 ] && usage && exit 0
+[ $1 == "-h" -o "$1" == "--help" -o "$1" == "h" -o "$1" == "help" ] && usage && exit 0
+
+case "$1" in
+    d2b) 
+        shift 1
+        d2b $@
+        ;;
+    d2o)
+        shift 1
+        d2b $@
+        ;;
+    d2h)
+        shift 
+        d2h $@
+        ;;
+    *)
+        echo "invalid command $1" && usage && exit 1
+        ;;
+esac

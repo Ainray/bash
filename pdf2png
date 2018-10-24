@@ -14,13 +14,13 @@ syntax(){
     echo "Options:"
     echo "  -h, print this help"
 }
-if [ ! -x /usr/bin/gs ]; then echo "gs cannot be run.";return 1;fi
-if [ $# -gt 3 -o $# -lt 1 ]; then syntax;return 1;fi
-if [ "$1" = "-h" ]; then syntax;return 0;fi
-local ifile="${1%.pdf}.pdf"
-local ofile="${2:-${1%.pdf}}"
-local res=${3:-600}
+if [ ! -x /usr/bin/gs ]; then echo "gs cannot be run.";exit 1;fi
+if [ $# -gt 3 -o $# -lt 1 ]; then syntax;exit 1;fi
+if [ "$1" = "-h" ]; then syntax;exit 0;fi
+ifile="${1%.pdf}.pdf"
+ofile="${2:-${1%.pdf}}"
+res=${3:-600}
 ofile="${ofile%.png}.png"
-if [ ! -f "${ifile}" ]; then echo "File $ifile doesnot exist."; return 1;fi
-if [ -f "${ofile}" ]; then echo "File $ofile exists. Please give a new name.";return 1; fi
+if [ ! -f "${ifile}" ]; then echo "File $ifile doesnot exist."; exit 1;fi
+#if [ -f "${ofile}" ]; then echo "File $ofile exists. Please give a new name.";exit 1; fi
 gs -o -q -sDEVICE=png256 -dPDFCrop -r${res} -o${ofile} ${ifile} >/dev/null

@@ -3,12 +3,14 @@ VERSION="0-1"
 PROGNAME=$(basename "$BASH_SOURCE")
 usage(){
     echo "SYNOPSIS:"
-    echo "  ${PROGNAME} [-abcpw]"
+    echo "  ${PROGNAME} [-abcipw]"
     echo "Options:"
     echo "  -a, list algorithm"
     echo "  -b, list books"
     echo "  -c, list constants"
+    echo "  -i, list LAN IP"
     echo "  -p, list problems"
+    echo "  -w, list word font size"
 }
 
 alglist(){
@@ -58,13 +60,58 @@ cat <<_PROBLIST
     --------------------------------------------------------------------------------------
 _PROBLIST
 }
+
+iplan(){
+cat <<_IPLAN
+    ip for LANs by rfc1918, 
+    ----------------------------------------------------------------------------------------
+    classes network addresses           net mask        net mask /bits  # of subnets
+    ---------------------------------------------------------------------------------------- 
+    A       10.x.x.x                    255.0.0.0       /8              1
+    B       172.16.x.x--172.31.x.x      255.255.0.0     /16             16
+    C       192.168.0.x--192.168.255.x  255.255.255.0   /24             256
+    ---------------------------------------------------------------------------------------- 
+    NOTE: if one of these addresses is assigned to a host, then that host must not access the Internet
+    directly but must access it through a gateway that acts as a proxy for individual services or else
+    does NAT. The broadband router usually performs NAT for the consumer LAN environment.
+_IPLAN
+}
+
+wordfontsize(){
+cat <<_FONTSIZE
+                  Word Font Size
+    -------------------------------------------
+    Font No.      Point(pt)       Milimeter(mm)
+    -------------------------------------------
+      0             42              14.82
+      0s            36              12.70
+      1             26               9.17
+      1s            24               8.47
+      2             22               7.76
+      2s            18               6.35
+      3             16               5.64
+      3s            15               5.29
+      4             14               4.94
+      4s            12               4.23
+      5             10.5             3.70
+      5s             9               3.18
+      6              7.5             2.56
+      6s             6.5             2.29
+      7              5.5             1.94
+      8              5               1.76
+    -------------------------------------------
+    NOTE: 1s mean small No. 1, and so on.
+_FONTSIZE
+}
 [ $# -eq 0 ] && usage && exit 0
 case "$1" in 
     a|-a) alglist;;
     b|-b) booklist;;
     c|-c) phyconst;;
+    i|-i) iplan;;
     p|-p) problist;;
     h|-h|--help) usage;;
+    w|-w)wordfontsize;;
     *)usage;;
 esac
 

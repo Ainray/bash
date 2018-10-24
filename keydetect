@@ -73,3 +73,4 @@ keydetect(){
         key="$K1$K2$K3"
     done
 }
+keydetect

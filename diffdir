@@ -103,5 +103,5 @@ case "${cmptype}" in
         diffdir2
         diff_print ${printtype} 2
         ;;
-    *)  echo "Invalid option ${cmptype}." && exit 1
+    *)  echo "Invalid option ${cmptype}." && usage && exit 1
 esac

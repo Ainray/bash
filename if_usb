@@ -1,0 +1,2 @@
+#!/bin/bash
+/sbin/ifconfig |grep "flags=.*<" |cut -d":" -f 1 | sed -n '2p'

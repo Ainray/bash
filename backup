@@ -12,7 +12,8 @@ usage(){
     echo "  ${PROGNAME} r  file [keys]              list specified files if they exist"
     echo "  [sudo] ${PROGNAME} [p <path>] r  --run file [keys]"
     echo "                                          restore specified files if they exist"
-    echo "  sudo ${PROGNAME} p <path>  [...]             specify the backup prefix, to run previous commands"
+    echo "  sudo ${PROGNAME} p <path>  [...]        specify the backup prefix, to run previous commands"
+    echo "  ${PROGNAME} d  DES  SRC                 backup Linux into disk"
     echo "  sudo ${PROGNAME} install                install" 
     echo "  sudo ${PROGNAME} unstall                uninstall"
     echo "  ${PROGNAME} m                           backup window and Linux"
@@ -35,7 +36,7 @@ usage(){
     echo 
     echo "          KEYS to specify keys word to obtain unique file you want to restore, just invoking "
     echo "      grep (using BRE)."  
-    echo 
+    echo ""
     echo "Install manually"
     echo 
     echo "      sudo install -Dm755 ${PROGNAME} /usr/local/sbin/${PROGNAME}"
@@ -92,8 +93,19 @@ tailer(){
     echo 
     echo 
 }
+backup_install(){
+    echo "update installation list."
+    echo "dpkg --get-selections > ~/.install_log"
+    echo 
+    dpkg --get-selections > ~/.install_log
+}
+
 backup_linux(){
+    # update important files
+    backup_install
     # synchronize important Linux files and directories
+    echo -n "rsync -avR --delete --delete-excluded --filter=\"merge ${FILTER}\""
+    echo " /home/inray /etc ${backdir}"
     rsync -avR --delete --delete-excluded --filter="merge ${FILTER}"  \
       /home/inray /etc ${backdir}
 }
@@ -119,20 +131,42 @@ tar_linux(){
         mv ${backdir}.tar.gz ${LINUXTARPATH}
 }
 
-backup_linux_win(){
-    # backup important files
-    #-------------------------- Windows---------------
-    # g:/Prj/03-refs <---> winsda5/Prj/03-refs
+backup_linux_disk(){
+    #   local to disk
     #
-        rsync -av /mnt/wing/Prj/03-refs/ ${PREFIX}/winsda5/Prj/03-refs/
-        #rsync -av --delete ${PREFIX}/winsda5/Prj/03-refs/ /mnt/wing/Prj/03-refs/
-    #
-    #-------------------------- Linux ---------------
-    # ~/Document/ ---> /mnt/wing/Linux
-    #
-        rsync -av ${PREFIX}/Documents/ /mnt/wing/Linux/
-        #rsync -av --delete /mnt/wing/Linux/ ${PREFIX}/Documents/ 
+    path_to="${1:-/mnt/usb}"
+    shift
+    path_from="${2:-${HOME}/winsda5}"
+
+    path_sub="Ainray"
+    echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
+    rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
+
+    path_sub="Archive"
+    echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
+    rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
+
+    path_sub="Geotools"
+    echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
+    rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
+
+    path_sub="Linux"
+    echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
+    rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
+
+    path_sub="OsInstallNecessary"
+    echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
+    rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
+
+    path_sub="Prj"
+    echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
+    rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
+
+    path_sub="Virtualbox/virtualwins/"
+    echo "rsync -av --delete --delete-excluded --exlude='lost+found' ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
+    rsync -av --delete --delete-excluded --exlude='lost+found' ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
 }
+
 restore_header(){
     local hc="$(date -R): restore"
     echo  "=================${hc}================="
@@ -157,8 +191,8 @@ restore_run(){
     src="${src#${backdir}}"
     [[ "${src}" =~ etc ]] && [ $(id -u) -ne 0 ] &&
         echo "Please run as root to restore ${src}." >&2 && return 1
-    install -v -Dm644 ${backdir}${src} ${src} 2>/dev/null || return 1
     echo "install -Dm644 ${backdir}${src} ${src}"
+    install -v -Dm644 ${backdir}${src} ${src} 2>/dev/null || return 1
 }
 back_comp(){
     echo '#!/bin/bash'
@@ -170,7 +204,7 @@ back_comp(){
     echo '    prev=${COMP_WORDS[$((COMP_CWORD-1))]}'
     echo '    case "$prev" in'
     echo "        ${PROGNAME})"
-    echo '            opts="b c r u p comp install uninstall"'
+    echo '            opts="b c d r u p comp install uninstall"'
     echo '            ;;'
     echo '        "r")'
     echo '            opts="--run"'
@@ -214,6 +248,10 @@ case "${1}" in
             header |tee -a ${LOGFILE}
             update_linux |tee -a ${LOGFILE}
             tailer >> ${LOGFILE}
+        ;;
+    d|-d)
+        # backup Linux to disk
+        backup_linux_disk |tee -a ${LOGFILE}
         ;;
     r|-r)
         shift

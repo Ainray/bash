@@ -58,13 +58,13 @@ IFS=$'\012'
 if [ "$1" == "-realpath" ]; then realpathop=$2;shift 2;fi
 if [ "$1" == "-n" ]; then noex=1;shift;fi
 case "$1" in
-    'p') type=1;shift;;
-    'b') type=2;shift;;
-    'e') type=4;shift;;
-    's') type=6;shift;;
-    'f') type=7;shift;;
-    'be'|'eb') type=6;shift;;
-    'pbe'|'peb'|'bpe'|'bep'|'epb'|'ebp') type=7;shift;;
+    'p'|-p) type=1;shift;;
+    'b'|-b) type=2;shift;;
+    'e'|-e) type=4;shift;;
+    's'|-s) type=6;shift;;
+    'f'|-f) type=7;shift;;
+    'be'|'eb'|-be|-eb) type=6;shift;;
+    'pbe'|'peb'|'bpe'|'bep'|'epb'|'ebp'|-pbe|-peb|-bpe|-bep|-epb|-ebp) type=7;shift;;
     1|2|4|6|7) type=$1;shift;;
     *) [ ! -f "$1" ] && echo "Invalid option $1" && exit 1;;
 esac
