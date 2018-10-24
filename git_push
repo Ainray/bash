@@ -1,0 +1,13 @@
+#!/bin/bash
+# update github automatically, from some minor changes
+# form Asus laptop
+olddir=$(pwd)
+cd ${HOME}/.bash
+git add .
+git commit -m "Update from Asus."
+git push -u  origin master
+cd ${HOME}/.note
+git add .
+git commit -m "Update from Asus."
+git push -u  origin master
+cd ${olddir}
