@@ -14,6 +14,9 @@ usage(){
     echo "                                          restore specified files if they exist"
     echo "  sudo ${PROGNAME} p <path>  [...]        specify the backup prefix, to run previous commands"
     echo "  ${PROGNAME} d  DES  SRC                 backup Linux into disk"
+    echo "  ${PROGNAME} v  DES  SRC                 backup Virtual boxes into disk"
+    echo "  ${PROGNAME} g  DES  SRC                 backup GER into Linux"
+    echo "  ${PROGNAME} G  DES  SRC                 update linux into GER"
     echo "  sudo ${PROGNAME} install                install" 
     echo "  sudo ${PROGNAME} unstall                uninstall"
     echo "  ${PROGNAME} m                           backup window and Linux"
@@ -138,6 +141,8 @@ backup_linux_disk(){
     shift
     path_from="${2:-${HOME}/winsda5}"
 
+    mount |grep "${path_to}" >/dev/null || echo "Please first mount ${path_to}"
+    
     path_sub="Ainray"
     echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
     rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
@@ -162,9 +167,39 @@ backup_linux_disk(){
     echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
     rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
 
-    path_sub="Virtualbox/virtualwins/"
-    echo "rsync -av --delete --delete-excluded --exlude='lost+found' ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
-    rsync -av --delete --delete-excluded --exlude='lost+found' ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
+    path_sub="Virtualbox/win10"
+    echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
+    rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
+
+    path_sub="Virtualbox/winxp"
+    echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
+    rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
+
+    path_sub="GE-GER"
+    echo "rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/"
+    rsync -av --delete --delete-excluded ${path_from}/${path_sub}/ ${path_to}/${path_sub}/
+}
+
+backupvirtualbox(){
+    path_to="${1:-/mnt/usb}"
+    path_from="${2:-${HOME}/win10}"
+
+    echo "VBoxManage clonemedium ${path_from}/WinXP.vdi ${path_to}/Virtualbox/virtualwins/WinXP.vdi --existing"
+    VBoxManage clonemedium ${path_from}/WinXP.vdi ${path_to}/Virtualbox/virtualwins/WinXP.vdi --existing 
+    echo "VBoxManage clonemedium ${path_from}/Win10.vdi ${path_to}/Virtualbox/virtualwins/Win10.vdi --existing"
+    VBoxManage clonemedium ${path_from}/Win10.vdi ${path_to}/Virtualbox/virtualwins/Win10.vdi --existing
+}
+
+backupger(){
+    path_to="${1:-${HOME}/winsda5}"
+    path_from="${2:-/mnt/win}"
+    rsync -av --delete --progress=info2 ${path_from}/GE-GER/ ${path_to}/GE-GER/
+}
+backupgerreverse(){
+    path_to="${2:-/mnt/win}"
+    path_from="${1:-${HOME}/winsda5}"
+    mount |grep "${path_to}" >/dev/null || echo "Please first mount ${path_to}"
+    mount |grep "${path_to}" >/dev/null && rsync -av --delete --progress=info2 ${path_from}/GE-GER/ ${path_to}/GE-GER/
 }
 
 restore_header(){
@@ -204,7 +239,7 @@ back_comp(){
     echo '    prev=${COMP_WORDS[$((COMP_CWORD-1))]}'
     echo '    case "$prev" in'
     echo "        ${PROGNAME})"
-    echo '            opts="b c d r u p comp install uninstall"'
+    echo '            opts="b c d g G v r u p comp install uninstall"'
     echo '            ;;'
     echo '        "r")'
     echo '            opts="--run"'
@@ -250,8 +285,22 @@ case "${1}" in
             tailer >> ${LOGFILE}
         ;;
     d|-d)
+        header |tee -a ${LOGFILE}
         # backup Linux to disk
         backup_linux_disk |tee -a ${LOGFILE}
+        tailer >> ${LOGFILE}
+        ;;
+    g|-g)
+        header |tee -a ${LOGFILE}
+        # backup GER 
+        backupger|tee -a ${LOGFILE}
+        tailer >> ${LOGFILE}
+        ;;
+    G|-G)
+        header |tee -a ${LOGFILE}
+        # backup GER 
+        backupgerreverse|tee -a ${LOGFILE}
+        tailer >> ${LOGFILE}
         ;;
     r|-r)
         shift
@@ -280,6 +329,12 @@ case "${1}" in
             update_linux |tee -a ${LOGFILE}
             tailer >> ${LOGFILE}
         ;; 
+    v|-v)
+        header |tee -a ${LOGFILE}
+        # backup virtualbox to disk
+        backupvirtualbox |tee -a ${LOGFILE}
+        tailer >> ${LOGFILE}
+        ;;
     --comp|comp)
         echo "Create bash completion file: _${PROGNAME}"
         back_comp_gene

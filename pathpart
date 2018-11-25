@@ -5,7 +5,7 @@ syntax(){
     echo "Synopsis:"
     echo "  pathpart [-h]"
     echo "  pathpart files"
-    echo "  pathpart [-n] p|b|e|s|f|be|pbe files"
+    echo "  pathpart p|b|e|s|f|be|pbe files"
     echo "  pathpart [-n] [1-7] files"
     echo "  pathpart [-n] [1-7] files "
     echo 

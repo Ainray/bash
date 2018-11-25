@@ -3,7 +3,7 @@ VERSION="0-1"
 PROGNAME=$(basename $BASH_SOURCE)
 usage(){
     echo "SYNOPSIS:"
-    echo "  $PROGNAME d2b|b2h|d2o <num list>"
+    echo "  $PROGNAME d2b|b2h|d2o|h2d <num list>"
 }
 
 statblk(){
@@ -105,7 +105,8 @@ mattranspose(){
     for file in $*
     do
         if [ -f ${file} ] ; then
-            ofile="$(pathpart -b ${file})_T.$(pathpart -x ${file})"
+            ofile="$(pathpart -b ${file})_T.$(pathpart -e ${file})"
+            echo ${ofile}
             echo -n '' > ${ofile}
             n=`head -1 ${file} |wc -w`
             for i in `seq $n`
@@ -194,6 +195,13 @@ d2o(){
     done
 }
 
+h2d(){
+
+    for i in $*
+    do 
+        echo "ibase=16;obase=A;${i}" |bc
+    done
+}
 # parse inut
 [ $# -eq 0 ] && usage && exit 0
 [ $1 == "-h" -o "$1" == "--help" -o "$1" == "h" -o "$1" == "help" ] && usage && exit 0
@@ -210,6 +218,19 @@ case "$1" in
     d2h)
         shift 
         d2h $@
+        ;;
+    h2d)
+        shift
+        h2d $@
+        ;;
+    mat)
+        shift
+        case $1 in
+            tran)
+                shift 
+                mattranspose "$@"
+                ;;
+        esac
         ;;
     *)
         echo "invalid command $1" && usage && exit 1

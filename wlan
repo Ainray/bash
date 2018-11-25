@@ -1,0 +1,5 @@
+#!/bin/bash
+IWLIST=/sbin/iwlist
+$IWLIST $(if_wlan) scan |egrep -i "essid|ssid|signal" \
+    |paste -d" " - - |cut -d"=" -f 3-4 \
+    |awk '{printf "%-25s\t%s %s\n", $3, $2, $1}'|sort -k2|less
